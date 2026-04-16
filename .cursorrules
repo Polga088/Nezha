@@ -1,0 +1,21 @@
+# MISSION : NEZHA MEDICAL - BACKEND & LOGIC DEV
+
+## 1. CONTEXTE ARCHITECTURAL
+- Port de développement : 3001 (JAMAIS 3000).
+- Middleware : Situé à la racine `/Nezha/middleware.ts` (NE PAS déplacer dans src/).
+- UI Framework : Shadcn UI + Tailwind CSS. Le design a été stabilisé par l'agent UI/UX.
+
+## 2. RÈGLES DE DÉVELOPPEMENT (NE PAS BRISER)
+- HYDRATATION : Interdiction stricte d'ajouter un 'ThemeProvider' ou tout wrapper causant des mismatchs d'hydratation sur <html>.
+- AUTHENTIFICATION : Utiliser la route `/api/auth/me` pour récupérer l'ID réel de l'utilisateur (currentUserId). Ne jamais utiliser de 'mock-id'.
+- LOGOUT : Utiliser `window.location.href = '/login'` pour forcer la redirection native et vider le cache.
+
+## 3. PROTOCOLE DE MÉMOIRE (RECALL STACK)
+- Avant de coder, Lis IMPÉRATIVEMENT :
+  1. `CLAUDE.md` : Conventions de nommage et interdictions.
+  2. `PRIMER.md` : État actuel du bug JSON.
+  3. `HINDSIGHT.md` : Erreurs passées à ne pas répéter (ex: conflits de cache Brave).
+
+## 4. PRIORITÉ ACTUELLE
+- Résoudre l'erreur JSON "Unexpected token <". 
+- Inspecter les routes API pour s'assurer qu'elles renvoient `NextResponse.json()` et non une page HTML d'erreur.

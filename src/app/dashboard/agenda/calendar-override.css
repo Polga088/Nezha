@@ -1,0 +1,301 @@
+/* ═══════════════════════════════════════════════════════════
+   NEZHA MEDICAL — Thème "Google Calendar / Apple Calendar"
+   Police : Inter (chargée via Next.js font)
+   ═══════════════════════════════════════════════════════════ */
+
+/* ─── RESET & BASE ──────────────────────────────────────────── */
+.rbc-calendar * { box-sizing: border-box; }
+
+.rbc-calendar {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: 13px;
+  color: #0f172a;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+}
+
+/* ─── TOOLBAR ────────────────────────────────────────────────── */
+.rbc-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 0 16px 0;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.rbc-toolbar-label {
+  font-size: 15px;
+  font-weight: 600;
+  color: #0f172a;
+  flex: 1;
+  text-align: center;
+  letter-spacing: -0.01em;
+}
+
+.rbc-btn-group { display: flex; gap: 2px; }
+
+.rbc-btn-group button {
+  padding: 5px 14px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 500;
+  font-family: inherit;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.1s;
+  line-height: 1.5;
+}
+.rbc-btn-group button:first-child { border-radius: 6px 0 0 6px; }
+.rbc-btn-group button:last-child  { border-radius: 0 6px 6px 0; }
+.rbc-btn-group button:not(:first-child) { margin-left: -1px; }
+
+.rbc-btn-group button:hover {
+  background: #f8fafc;
+  color: #374151;
+  z-index: 1;
+}
+.rbc-btn-group button.rbc-active {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #1d4ed8;
+  font-weight: 600;
+  z-index: 2;
+}
+
+/* ─── VUE MENSUELLE ─────────────────────────────────────────── */
+.rbc-month-view {
+  border: 1px solid #f1f5f9;
+  border-radius: 12px;
+  overflow: hidden;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.rbc-month-header { display: flex; background: #f8fafc; }
+
+.rbc-header {
+  padding: 12px 8px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: #1e293b;
+  border-bottom: 1px solid #f1f5f9;
+  flex: 1;
+}
+.rbc-header + .rbc-header { border-left: 1px solid #f1f5f9; }
+
+.rbc-month-row {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  border-top: 1px solid #f1f5f9;
+  min-height: 90px;
+}
+.rbc-row-bg { display: flex; flex: 1; }
+
+.rbc-day-bg { flex: 1; background: #fff; }
+.rbc-day-bg + .rbc-day-bg { border-left: 1px solid #f8fafc; }
+.rbc-off-range-bg { background: #fafafa; }
+.rbc-today { background: #f0f9ff !important; }
+
+.rbc-date-cell {
+  padding: 6px 8px 2px;
+  text-align: right;
+  font-size: 12px;
+  font-weight: 500;
+  color: #94a3b8;
+}
+.rbc-date-cell.rbc-now .rbc-button-link {
+  background: #dbeafe;
+  color: #1d4ed8;
+  border-radius: 9999px;
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+}
+
+/* ─── VUE SEMAINE / JOUR ────────────────────────────────────── */
+.rbc-time-view {
+  border: 1px solid #f1f5f9;
+  border-radius: 12px;
+  overflow: hidden;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.rbc-time-header {
+  display: flex;
+  border-bottom: 1px solid #f1f5f9;
+  background: #f8fafc;
+}
+.rbc-time-header-gutter {
+  width: 56px;
+  border-right: 1px solid #f1f5f9;
+  flex-shrink: 0;
+}
+.rbc-time-header-content { display: flex; flex: 1; flex-direction: column; }
+.rbc-time-header-content .rbc-header {
+  flex: 1;
+  border-left: 1px solid #f1f5f9;
+  border-bottom: none;
+  padding: 10px 8px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.rbc-time-header-content .rbc-header.rbc-today {
+  background: #eff6ff;
+  border-radius: 9999px;
+  color: #1e40af;
+}
+
+.rbc-time-content {
+  display: flex;
+  flex: 1;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #e2e8f0 transparent;
+}
+.rbc-time-gutter {
+  width: 56px;
+  background: #fbfcfe;
+  border-right: 1px solid #f1f5f9;
+  flex-shrink: 0;
+}
+.rbc-timeslot-group {
+  display: flex;
+  flex-direction: column;
+  border-bottom: 1px solid #f1f5f9;
+  min-height: 58px;
+}
+.rbc-time-slot { display: flex; align-items: flex-start; padding: 4px 8px; flex: 1; }
+.rbc-time-gutter .rbc-time-slot .rbc-label {
+  font-size: 10px;
+  font-weight: 500;
+  color: #cbd5e1;
+  margin-top: -6px;
+  white-space: nowrap;
+}
+.rbc-day-slot { position: relative; flex: 1; border-left: 1px solid #f1f5f9; }
+.rbc-day-slot .rbc-timeslot-group { border-bottom: 1px solid #f1f5f9; }
+.rbc-day-slot .rbc-time-slot { border-top: 1px dashed #f1f5f9; }
+
+/* ─── ÉVÉNEMENTS ─────────────────────────────────────────────── */
+/* Couleurs / forme par défaut — surchargées par eventPropGetter (Calendar.tsx) */
+.rbc-event,
+.rbc-day-slot .rbc-event {
+  padding: 4px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+.nezha-cal-event:hover {
+  box-shadow: 0 6px 16px -4px rgb(15 23 42 / 0.12) !important;
+}
+.rbc-event.rbc-selected {
+  box-shadow: 0 0 0 2px rgb(191 219 254 / 0.9) !important;
+}
+.rbc-event-label {
+  font-size: 10px;
+  font-weight: 500;
+  color: #64748b;
+  opacity: 0.95;
+}
+
+/* Événements dans la vue mensuelle */
+.rbc-event.rbc-event-allday,
+.rbc-event-continues-after,
+.rbc-event-continues-prior {
+  border-radius: 4px !important;
+}
+
+/* ─── SÉLECTION ───────────────────────────────────────────────── */
+.rbc-slot-selection {
+  background: rgba(37, 99, 235, 0.08);
+  border: 1px solid #93c5fd;
+  border-radius: 4px;
+}
+
+/* ─── SHOW MORE ──────────────────────────────────────────────── */
+.rbc-show-more {
+  color: #3b82f6;
+  font-weight: 600;
+  font-size: 11px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+.rbc-show-more:hover { background: #eff6ff; }
+
+/* ─── LIGNE DU TEMPS ACTUEL ──────────────────────────────────── */
+.rbc-current-time-indicator {
+  background: #38bdf8;
+  height: 2px;
+  z-index: 3;
+  position: relative;
+}
+.rbc-current-time-indicator::before {
+  content: '';
+  width: 9px; height: 9px;
+  background: #38bdf8;
+  border-radius: 50%;
+  position: absolute;
+  left: -5px; top: -3.5px;
+}
+
+/* ─── Agenda (liste) : bords discrets ─────────────────────────── */
+.rbc-agenda-view table.rbc-agenda-table,
+.rbc-agenda-view .rbc-agenda-table {
+  border: 1px solid #f1f5f9;
+  border-radius: 0.75rem;
+  overflow: hidden;
+}
+.rbc-agenda-view .rbc-agenda-table tbody > tr > td {
+  border-color: #f1f5f9;
+}
+
+/* ─── Mode sombre (classe `dark` sur <html>) ───────────────── */
+.dark .rbc-calendar {
+  background: #18181b;
+  color: #e4e4e7;
+}
+.dark .rbc-toolbar-label {
+  color: #fafafa;
+}
+.dark .rbc-btn-group button {
+  background: #27272a;
+  border-color: #3f3f46;
+  color: #a1a1aa;
+}
+.dark .rbc-btn-group button.rbc-active {
+  background: #3f3f46;
+  border-color: #52525b;
+  color: #fafafa;
+}
+.dark .rbc-header {
+  color: #a1a1aa;
+  border-bottom-color: #3f3f46;
+}
+.dark .rbc-time-view,
+.dark .rbc-month-view {
+  border-color: #3f3f46;
+}
+.dark .rbc-time-gutter {
+  background: #18181b;
+  border-right-color: #3f3f46;
+}
+.dark .rbc-day-slot {
+  border-left-color: #3f3f46;
+}

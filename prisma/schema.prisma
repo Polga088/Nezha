@@ -1,0 +1,460 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  ADMIN
+  DOCTOR
+  ASSISTANT
+}
+
+/// Cycle de vie RDV : attente → consultation → clôture médecin → encaissement.
+enum AppointmentStatus {
+  WAITING       // Planifié ou en salle (arrivalTime renseigné = en salle physique)
+  IN_PROGRESS   // Consultation en cours
+  FINISHED      // Clôturé par le médecin — attente encaissement accueil
+  PAID          // Réglé
+  CANCELED      // Annulé
+}
+
+/// Type de rendez-vous — ordre enum = priorité file (URGENT d’abord).
+enum AppointmentType {
+  URGENT
+  FIRST_VISIT
+  FOLLOW_UP
+}
+
+/// Canal de réservation (secrétariat / accueil).
+enum BookingChannel {
+  PHONE
+  ON_SITE
+}
+
+enum PaymentMethod {
+  CASH             // Espèces
+  CARD             // Carte
+  CHECK            // Chèque
+  INSURANCE        // Tiers payant/Mutuelle
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  CANCELLED
+}
+
+/// Mode de règlement d’une facture (espèces, carte, chèque).
+enum InvoiceModePaiement {
+  CASH
+  CARD
+  CHECK
+}
+
+enum DocumentType {
+  PRESCRIPTION     // Ordonnance
+  CERTIFICATE      // Certificat médical
+  EXTERNAL_RESULT  // Résultat externe
+}
+
+enum Sexe {
+  MASCULIN
+  FEMININ
+}
+
+/// Couverture / organisme d’assurance maladie (affichage dossier patient).
+enum AssuranceType {
+  AUCUNE
+  CNSS
+  CNOPS
+  FAR
+  RAMID
+  MUTUELLE_PRIVEE
+  AUTRE
+}
+
+/// Disponibilité pour la messagerie interne (équipe soignante).
+enum UserStatus {
+  AVAILABLE
+  BUSY
+  AWAY
+  OFFLINE
+}
+
+/// Catégories de charges (dépenses cabinet).
+enum ExpenseCategory {
+  LOYER
+  MATERIEL
+  SALAIRE
+  AUTRE
+}
+
+/// Pastilles centre de notifications (navbar).
+enum NotificationType {
+  INFO
+  URGENT
+  SUCCESS
+}
+
+/// Licence logicielle (clé fournie par UST — une ligne par clé délivrée).
+model License {
+  id          String    @id @default(uuid())
+  /// Valeur secrète de la clé (colonne SQL `key`).
+  licenseKey  String    @unique @map("key")
+  activatedAt DateTime?
+  expiresAt   DateTime?
+  /// Identifiant machine / navigateur (liaison post-activation).
+  deviceId    String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+/// Paramètres cabinet (ligne unique, id fixe `default`).
+model GlobalSettings {
+  id                       String   @id @default("default")
+  /// Code devise ISO (ex. EUR, MAD).
+  currency                 String   @default("EUR")
+  /// Prix / montant de référence pour une consultation (affichage & facturation par défaut).
+  defaultConsultationPrice Float    @default(0)
+  /// Codes acceptés : CASH, CARD, CHECK, BANK_TRANSFER (virement).
+  acceptedPaymentMethods String[] @default(["CASH", "CARD", "CHECK", "BANK_TRANSFER"])
+  /// URL publique ou chemin de la signature médecin (image PNG/JPG) pour les PDF d’ordonnance.
+  signatureUrl           String?
+  /// Identité & marque (landing, sidebar, PDF).
+  cabinetName         String?
+  doctorDisplayName   String?
+  logoUrl             String?
+  cabinetPhone        String?
+  cabinetEmail        String?
+  cabinetAddress      String?
+  cabinetCityLine     String?
+  /// Numéro d’inscription professionnelle (affichage PDF, en-tête cabinet).
+  doctorInpe          String?
+  /// Spécialité médicale (affichage PDF & documents).
+  doctorSpecialty     String?
+  /// iframe Google Maps « Partager > Intégrer une carte ».
+  mapEmbedUrl         String?
+  /// Horaires d’ouverture : JSON [{ "jour", "plage" }].
+  openingHours        Json?
+  /// SMTP (envoi emails transactionnels) — prioritaire sur les variables d’environnement.
+  smtpHost   String?
+  smtpPort   Int?
+  smtpUser   String?
+  smtpPass   String?
+  smtpFrom   String?
+  updatedAt                DateTime   @updatedAt
+}
+
+/// Ordonnances enregistrées (historique + PDF).
+model Prescription {
+  id          String   @id @default(uuid())
+  patientId String
+  patient     Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  /// Médecin prescripteur (saisie / secrétariat → médecin référent).
+  doctorId  String?
+  doctor      User?    @relation("PrescriptionDoctor", fields: [doctorId], references: [id], onDelete: SetNull)
+  date        DateTime @default(now())
+  /// Liste JSON : [{ "nom", "dosage"?, "posologie", "duree"? }]
+  medicaments Json
+  /// Rappel diagnostic (lien dossier — affiché sur le PDF si renseigné).
+  diagnosticAssocie String? @db.Text
+  conseils    String?  @db.Text
+  /// Lien sécurisé patient (page /p/[token] + vérification CIN).
+  sharingToken String  @unique @default(uuid())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([patientId, date])
+  @@index([doctorId])
+}
+
+/// Packs / favoris pour l’éditeur d’ordonnance (ex. « Grippe »).
+model PrescriptionTemplate {
+  id        String   @id @default(uuid())
+  titre     String
+  /// Même structure JSON que Prescription.medicaments
+  contenu   Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model User {
+  id            String        @id @default(uuid())
+  nom           String
+  email         String        @unique
+  password_hash String
+  /// Jeton opaque réinitialisation mot de passe (usage unique).
+  passwordResetToken   String?   @unique
+  passwordResetExpires DateTime?
+  role          Role          @default(ASSISTANT)
+  /// Spécialité médicale (affichage / filtrage médecins).
+  specialite    String?
+  isActive      Boolean       @default(true)
+  userStatus    UserStatus    @default(OFFLINE)
+  /// Dernier changement de pastille (salle d’attente / visibilité assistant).
+  userStatusChangedAt DateTime @default(now())
+
+  appointmentsAsDoctor Appointment[]  @relation("DoctorAppointments")
+  consultationArchivesAsDoctor ConsultationArchive[] @relation("ConsultationArchiveDoctor")
+  sentMessages         ChatMessage[]   @relation("ChatSent")
+  receivedMessages     ChatMessage[]   @relation("ChatReceived")
+  todos                Todo[]
+  notifications        Notification[]
+  prescriptionsAsDoctor Prescription[] @relation("PrescriptionDoctor")
+  invoicesCreated       Invoice[]       @relation("InvoiceCreatedBy")
+
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+}
+
+/// Notification utilisateur (file d’attente, clôture consultation, etc.).
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String           @db.Text
+  type      NotificationType @default(INFO)
+  read      Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  @@index([userId, read, createdAt])
+}
+
+/// Tâches personnelles (médecins / admin) avec échéance optionnelle.
+model Todo {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  task      String    @db.Text
+  completed Boolean   @default(false)
+  dueDate   DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, completed])
+  @@index([userId, dueDate])
+}
+
+/// Dépenses cabinet (charges).
+model Expense {
+  id             String          @id @default(uuid())
+  label          String
+  amount         Float
+  category       ExpenseCategory
+  date           DateTime        @default(now())
+  /// URL publique du justificatif (PDF ou image), ex. `/uploads/expenses/...`
+  attachmentUrl  String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@index([date])
+  @@index([category])
+}
+
+model ChatMessage {
+  id         String    @id @default(uuid())
+  content    String    @db.Text
+  senderId   String
+  sender     User      @relation("ChatSent", fields: [senderId], references: [id], onDelete: Cascade)
+  receiverId String
+  receiver   User      @relation("ChatReceived", fields: [receiverId], references: [id], onDelete: Cascade)
+  readAt     DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([senderId, receiverId, createdAt])
+  @@index([receiverId, readAt])
+}
+
+model Patient {
+  id              String        @id @default(uuid())
+  nom             String
+  prenom          String
+  date_naissance  DateTime
+  /// Facultatif — aucune obligation de saisie.
+  tel             String?
+  email           String?
+  adresse         String?
+  /// Optionnel — ne pas exiger côté DTO si non renseigné.
+  allergies       String?       @db.Text
+  /// Optionnel — ne pas exiger côté DTO si non renseigné.
+  antecedents     String?       @db.Text
+  /// Carte d’identité : unique quand renseigné (plusieurs NULL autorisés en PostgreSQL).
+  cin             String?       @unique
+  sexe            Sexe?
+  /// Groupe sanguin (ex. A+, O-). Colonne DB historique `groupe_sanguin`.
+  groupeSanguin   String?       @map("groupe_sanguin")
+  /// Optionnel (cm).
+  taille          Float?
+  /// Optionnel (kg).
+  poids           Float?
+  assuranceType       AssuranceType @default(AUCUNE)
+  matriculeAssurance  String?
+
+  appointments      Appointment[]
+  /// Fichiers rattachés au dossier patient (hors documents de consultation).
+  patientDocuments  PatientDocument[]
+  /// Historique taille / poids / IMC (suivi des visites).
+  vitalEntries      PatientVitalEntry[]
+  prescriptions     Prescription[]
+  consultationArchives ConsultationArchive[]
+  /// Historique signes vitaux (glycémie, TA, BPM) + diagnostic / notes par saisie libre.
+  consultations Consultation[]
+  /// Factures / encaissements rattachés au patient (avec ou sans rendez-vous).
+  invoices          Invoice[]
+
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+}
+
+/// Consultation dossier patient — constantes + diagnostic (hors flux RDV `ConsultationRecord`).
+model Consultation {
+  id                 String   @id @default(uuid())
+  patientId          String
+  patient            Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  /// Glycémie (mg/dL).
+  glycemie           Float?
+  /// Tension artérielle (ex. 120/80 mmHg).
+  tensionArterielle  String?
+  /// Fréquence cardiaque (battements / min).
+  battementCoeur     Int?
+  diagnostic         String?  @db.Text
+  notes              String?  @db.Text
+  date               DateTime @default(now())
+
+  @@index([patientId, date])
+}
+
+/// Mesure anthropométrique datée (courbe d’évolution poids & IMC).
+model PatientVitalEntry {
+  id          String   @id @default(uuid())
+  patient_id  String
+  patient     Patient  @relation(fields: [patient_id], references: [id], onDelete: Cascade)
+  recordedAt  DateTime @default(now())
+  /// Taille en centimètres
+  tailleCm    Float
+  /// Poids en kilogrammes
+  poidsKg     Float
+  /// IMC = poidsKg / (tailleCm/100)²
+  imc         Float
+
+  @@index([patient_id, recordedAt])
+}
+
+/// Documents importés pour le dossier patient (upload). Distinct de `Document` (lié à un rendez-vous).
+model PatientDocument {
+  id          String   @id @default(uuid())
+  patient_id  String
+  patient     Patient  @relation(fields: [patient_id], references: [id], onDelete: Cascade)
+  filename    String
+  mimeType    String?
+  /// Chemin ou URL de stockage (simulé côté API jusqu’à intégration S3/disque).
+  file_url    String?
+  label       String?
+  createdAt   DateTime @default(now())
+
+  @@index([patient_id])
+}
+
+model Appointment {
+  id            String            @id @default(uuid())
+  date_heure    DateTime
+  motif         String
+  statut        AppointmentStatus @default(WAITING)
+  /// Urgence, première consultation ou suivi — pilote la couleur agenda et la priorité en file.
+  appointmentType AppointmentType @default(FOLLOW_UP)
+  /// Couleur hex affichée dans l’agenda (dérivée du type si non renseignée).
+  color         String?
+  /// Heure d’entrée en salle (statut WAITING + présence physique).
+  arrivalTime   DateTime?
+  /// Ordre d’affichage dans la file (réorganisable par l’accueil).
+  waitingRoomOrder Int            @default(0)
+  /// Prise du RDV par téléphone ou sur place à l’accueil.
+  bookingChannel BookingChannel @default(PHONE)
+
+  doctor_id     String
+  doctor        User              @relation("DoctorAppointments", fields: [doctor_id], references: [id])
+  patient_id    String
+  patient       Patient           @relation(fields: [patient_id], references: [id])
+  
+  consultation  ConsultationRecord?
+  consultationArchive ConsultationArchive?
+  documents     Document[]
+  invoice       Invoice?
+  
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  @@index([doctor_id, statut, date_heure])
+}
+
+/// Snapshot immuable des notes au moment de la clôture médicale (fin de consultation).
+model ConsultationArchive {
+  id             String   @id @default(uuid())
+  appointment_id String   @unique
+  appointment    Appointment @relation(fields: [appointment_id], references: [id], onDelete: Cascade)
+  patient_id     String
+  patient        Patient  @relation(fields: [patient_id], references: [id], onDelete: Cascade)
+  doctor_id      String
+  doctor         User     @relation("ConsultationArchiveDoctor", fields: [doctor_id], references: [id], onDelete: Cascade)
+  notes_medecin  String?  @db.Text
+  diagnostic     String?  @db.Text
+  closedAt       DateTime @default(now())
+
+  @@index([patient_id, closedAt])
+  @@index([doctor_id, closedAt])
+}
+
+model ConsultationRecord {
+  id             String        @id @default(uuid())
+  notes_medecin  String?       @db.Text
+  diagnostic     String?       @db.Text
+  
+  appointment_id String        @unique
+  appointment    Appointment   @relation(fields: [appointment_id], references: [id])
+  
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+}
+
+model Document {
+  id              String             @id @default(uuid())
+  type            DocumentType
+  contenu         String             @db.Text
+  file_url        String?
+  
+  appointment_id  String
+  appointment     Appointment        @relation(fields: [appointment_id], references: [id])
+  
+  createdAt       DateTime           @default(now())
+}
+
+model Invoice {
+  id        String @id @default(uuid())
+  patientId String
+  patient   Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  /// Optionnel : une facture peut être liée à un seul RDV (contrainte unicité côté RDV).
+  appointmentId String?      @unique @map("appointment_id")
+  appointment   Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+
+  /// Utilisateur ayant enregistré l’encaissement (JWT `id` au POST /api/invoices).
+  createdById String? @map("created_by_id")
+  createdBy   User?   @relation("InvoiceCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  montant      Float
+  statut       PaymentStatus      @default(PENDING)
+  modePaiement InvoiceModePaiement
+  /// Date effective du paiement (ex. quand statut = PAID).
+  datePaiement DateTime? @map("date_paiement")
+  /// Lien sécurisé patient (page /p/[token] + vérification CIN).
+  sharingToken String    @unique @default(uuid())
+
+  createdAt DateTime @default(now())
+
+  @@index([patientId, createdAt])
+  @@index([createdById])
+}

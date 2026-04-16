@@ -1,0 +1,149 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* The Clinical Architect — tonal layering (RGB channels for Tailwind /opacity) */
+    --clinical-surface-rgb: 249 249 249;
+    --clinical-container-low-rgb: 243 243 243;
+    /* Onglets / zones « ancrées » (surface-container-high) */
+    --clinical-container-high-rgb: 235 236 240;
+    --clinical-container-lowest-rgb: 255 255 255;
+    --clinical-on-surface-rgb: 26 28 28;
+    --clinical-on-surface-variant-rgb: 67 70 85;
+    --clinical-outline-variant-rgb: 195 198 215;
+
+    /* Dashboard layouts (dashboard.module.css, patients, etc.) */
+    --bg-primary: #f9f9f9;
+    --bg-secondary: #ffffff;
+    --border-color: #e2e8f0;
+    --text-primary: #0f172a;
+    --text-secondary: #64748b;
+    --accent-primary: #2563eb;
+    --accent-gradient: linear-gradient(135deg, #2563eb 0%, #4f46e5 100%);
+    --bg-glass: rgba(255, 255, 255, 0.85);
+
+    --background: 210 40% 98%;
+    --foreground: 215 28% 17%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 215 28% 17%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 215 28% 17%;
+
+    --primary: 221.2 83.2% 53.3%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 210 40% 98%;
+    --secondary-foreground: 215 28% 17%;
+
+    --muted: 210 40% 98%;
+    --muted-foreground: 215.4 16.3% 36.9%;
+
+    --accent: 210 40% 98%;
+    --accent-foreground: 215 28% 17%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 210 40% 96.1%;
+    --input: 210 40% 96.1%;
+    --ring: 221.2 83.2% 53.3%;
+
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    --clinical-surface-rgb: 20 20 22;
+    --clinical-container-low-rgb: 30 30 34;
+    --clinical-container-high-rgb: 44 44 48;
+    --clinical-container-lowest-rgb: 39 39 42;
+    --clinical-on-surface-rgb: 244 244 245;
+    --clinical-on-surface-variant-rgb: 161 161 170;
+    --clinical-outline-variant-rgb: 82 82 91;
+
+    --bg-primary: #18181b;
+    --bg-secondary: #27272a;
+    --border-color: #3f3f46;
+    --text-primary: #fafafa;
+    --text-secondary: #a1a1aa;
+    --accent-primary: #60a5fa;
+    --accent-gradient: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%);
+    --bg-glass: rgba(39, 39, 42, 0.88);
+
+    --background: 240 10% 9%;
+    --foreground: 210 20% 96%;
+
+    --card: 240 10% 12%;
+    --card-foreground: 210 20% 96%;
+
+    --popover: 240 10% 11%;
+    --popover-foreground: 210 20% 96%;
+
+    --primary: 217 91% 60%;
+    --primary-foreground: 222 47% 11%;
+
+    --secondary: 240 6% 16%;
+    --secondary-foreground: 210 20% 96%;
+
+    --muted: 240 6% 18%;
+    --muted-foreground: 215 16% 72%;
+
+    --accent: 240 6% 18%;
+    --accent-foreground: 210 20% 96%;
+
+    --destructive: 0 62% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 240 6% 20%;
+    --input: 240 6% 20%;
+    --ring: 217 91% 60%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    background-color: hsl(var(--background)) !important;
+  }
+
+  .dark body {
+    @apply antialiased;
+  }
+}
+
+@layer utilities {
+  .shadow-premium {
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -4px rgba(0, 0, 0, 0.025);
+  }
+
+  @keyframes voice-wave {
+    0%,
+    100% {
+      transform: scaleY(0.35);
+      opacity: 0.65;
+    }
+    50% {
+      transform: scaleY(1);
+      opacity: 1;
+    }
+  }
+
+  .animate-voice-wave {
+    animation: voice-wave 0.85s ease-in-out infinite;
+    transform-origin: center bottom;
+  }
+}
+
+/* Ordonnance — impression navigateur (vue /dashboard/.../print) */
+@media print {
+  @page {
+    size: A4;
+    margin: 14mm;
+  }
+}
