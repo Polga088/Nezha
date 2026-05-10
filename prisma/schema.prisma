@@ -206,9 +206,24 @@ model User {
   notifications        Notification[]
   prescriptionsAsDoctor Prescription[] @relation("PrescriptionDoctor")
   invoicesCreated       Invoice[]       @relation("InvoiceCreatedBy")
+  /// Horaires hebdomadaires d’agenda (une ligne par médecin, upsert via /api/doctor/availability).
+  doctorAvailability    Availability?
 
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
+}
+
+/// Disponibilités hebdomadaires du praticien (créneau type 09:00–18:00 par jour calendaire JS 0–6).
+model Availability {
+  id        String   @id @default(uuid())
+  doctorId  String   @unique @map("doctor_id")
+  doctor    User     @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  /// JSON : clés "0".."6" (0 = dimanche … 6 = samedi), valeur { enabled, start, end } en HH:mm 24h.
+  weekly    Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("Availability")
 }
 
 /// Notification utilisateur (file d’attente, clôture consultation, etc.).

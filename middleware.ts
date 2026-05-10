@@ -74,6 +74,43 @@ export async function middleware(request: NextRequest) {
   }
 
   // ============================================================
+  // API DOCTOR — disponibilités / réglages praticien (JSON, pas de redirect).
+  // Ne pas utiliser pathname.startsWith('/api/doctor') seul : inclurait '/api/doctors'.
+  // ============================================================
+  if (pathname.startsWith('/api/doctor/') || pathname === '/api/doctor') {
+    if (!token) {
+      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 });
+    }
+    const payload = await getPayload(token);
+    if (!payload) {
+      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 });
+    }
+    const role = String(payload.role).toUpperCase();
+    if (role !== 'DOCTOR') {
+      return NextResponse.json({ error: 'Accès refusé' }, { status: 403 });
+    }
+    return NextResponse.next();
+  }
+
+  // ============================================================
+  // API FILES — médias dossier patient (auth staff, évite exposition directe /uploads).
+  // ============================================================
+  if (pathname.startsWith('/api/files/')) {
+    if (!token) {
+      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 });
+    }
+    const payload = await getPayload(token);
+    if (!payload) {
+      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 });
+    }
+    const role = String(payload.role).toUpperCase();
+    if (role !== 'ADMIN' && role !== 'DOCTOR' && role !== 'ASSISTANT') {
+      return NextResponse.json({ error: 'Accès refusé' }, { status: 403 });
+    }
+    return NextResponse.next();
+  }
+
+  // ============================================================
   // API EXPENSES — dépenses cabinet (ADMIN ou DOCTOR, aligné sur /api/admin/expenses).
   // ============================================================
   if (pathname.startsWith('/api/expenses')) {

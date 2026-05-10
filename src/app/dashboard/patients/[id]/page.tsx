@@ -7,6 +7,7 @@ import {
   FileText, CreditCard, Plus, X, Download, Copy,
   Activity, AlertTriangle, FileBadge, History, MapPin, Phone, Mail, File as FileIcon, Calendar, Stethoscope, TrendingUp, CalendarPlus, ShieldCheck,
   Receipt,
+  Paperclip,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -110,6 +111,24 @@ function getImcColor(imcVal: string) {
   if (v < 25) return 'text-emerald-500';
   if (v < 30) return 'text-orange-500';
   return 'text-red-500';
+}
+
+/** URL API authentifiée pour afficher / télécharger un média dossier patient */
+function patientDocumentApiUrl(docId: string) {
+  return `/api/files/${docId}`;
+}
+
+function isPatientImageDoc(doc: { mimeType: string | null; filename: string }) {
+  const m = (doc.mimeType ?? '').toLowerCase();
+  if (m.startsWith('image/')) return true;
+  const ext = doc.filename.split('.').pop()?.toLowerCase() ?? '';
+  return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'heif'].includes(ext);
+}
+
+function isPatientPdfDoc(doc: { mimeType: string | null; filename: string }) {
+  const m = (doc.mimeType ?? '').toLowerCase();
+  if (m === 'application/pdf') return true;
+  return doc.filename.toLowerCase().endsWith('.pdf');
 }
 
 const INVOICE_MODE_LABEL: Record<string, string> = {
@@ -303,6 +322,7 @@ export default function PatientPage({ params }: { params: Promise<{ id: string }
         const res = await fetch(`/api/patients/${patient.id}/documents`, {
           method: 'POST',
           body: fd,
+          credentials: 'same-origin',
         });
         const raw = await res.text();
         if (!res.ok) {
@@ -1178,30 +1198,59 @@ export default function PatientPage({ params }: { params: Promise<{ id: string }
                       Documents du dossier
                     </h4>
                     <div className="grid sm:grid-cols-2 gap-3">
-                      {patientUploadedDocs.map((doc) => (
+                      {patientUploadedDocs.map((doc) => {
+                        const fileHref = patientDocumentApiUrl(doc.id);
+                        return (
                         <div
                           key={doc.id}
-                          className="p-3 border border-slate-100 rounded-xl bg-slate-50/80 hover:border-blue-200 transition-colors"
+                          className="p-3 border border-slate-100 rounded-xl bg-slate-50/80 hover:border-blue-200 transition-colors space-y-2"
                         >
-                          {doc.file_url ? (
+                          {isPatientImageDoc(doc) ? (
                             <a
-                              href={doc.file_url}
+                              href={fileHref}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="block text-sm font-medium text-blue-700 hover:underline break-words"
+                              className="block rounded-lg overflow-hidden border border-slate-200 bg-white ring-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                             >
-                              {doc.filename}
+                              <img
+                                src={fileHref}
+                                alt={doc.filename}
+                                className="w-full max-h-40 object-contain bg-slate-50"
+                              />
                             </a>
-                          ) : (
-                            <span className="text-sm font-medium text-slate-800">
-                              {doc.filename}
-                            </span>
-                          )}
-                          <p className="text-xs text-slate-500 mt-1">
+                          ) : isPatientPdfDoc(doc) ? (
+                            <div className="rounded-lg border border-slate-200 bg-white overflow-hidden h-40">
+                              <embed
+                                src={fileHref}
+                                type="application/pdf"
+                                title={doc.filename}
+                                className="w-full h-full min-h-[10rem]"
+                              />
+                            </div>
+                          ) : null}
+                          <div className="flex items-start gap-2">
+                            <Paperclip className="h-4 w-4 shrink-0 text-blue-500 mt-0.5" aria-hidden />
+                            {doc.file_url || doc.id ? (
+                              <a
+                                href={fileHref}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-sm font-medium text-blue-700 hover:underline break-words"
+                              >
+                                {doc.filename}
+                              </a>
+                            ) : (
+                              <span className="text-sm font-medium text-slate-800">
+                                {doc.filename}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-slate-500">
                             {new Date(doc.createdAt).toLocaleString('fr-FR')}
                           </p>
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 )}

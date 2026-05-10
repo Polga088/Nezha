@@ -237,3 +237,16 @@ npx prisma migrate reset --force && npx prisma db push && npx prisma db seed
 rm -rf .next         # Purger le cache Turbopack
 lsof -ti:3001 | xargs kill -9  # Forcer l'arrêt du serveur
 ```
+
+
+# sql base
+```
+#CREATE DATABASE nezha_db;
+#CREATE USER nezha_user WITH ENCRYPTED PASSWORD 'Nezha1991!';
+#GRANT ALL PRIVILEGES ON DATABASE nezha_db TO nezha_user;
+#\q
+#  GNU nano 6.2                                                           /var/www/nezha/Nezha/.env *                                                                  
+/#DATABASE_URL="postgresql://#nezha_user:Nezha1991!@localhost:5432/nezha_db"
+#JWT_SECRET="Texta@#!#2026solutions"
+#LICENSE_JWT_SECRET="Texta@#!#2026solutionsNezha1991!"#/
+```

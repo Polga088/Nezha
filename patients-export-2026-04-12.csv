@@ -1,0 +1,4 @@
+﻿id,nom,prenom,date_naissance,tel,email,adresse,cin,sexe,groupeSanguin,taille,poids,allergies,antecedents,assuranceType,matriculeAssurance,createdAt
+2c202202-7131-435f-8df5-258eeadfaa47,hamza,nidal,2001-07-20,0703020134,,,,,,,,,,AUCUNE,,2026-04-07T00:08:35.894Z
+e74885bf-b90e-42ca-8e32-67926cd9943a,zerhouni,hiba,2003-07-26,0709356734,hiba.werhouni@gmail.com,resd wala qasbat saada agdal rabat,kd09238,FEMININ,B+,163,57,,,AUCUNE,,2026-04-06T00:33:40.863Z
+d280a656-6c50-40e0-a0ad-9e23167161b6,Soufiane,Filali,1991-03-15,0663104773,soufiane.fillai.21@gmail.com,IMM lina n°1 appt n°6 rue Hagounia tabriquet,AE18292,MASCULIN,AB+,181,80,,,AUCUNE,,2026-04-05T23:17:22.923Z

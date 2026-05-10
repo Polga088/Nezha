@@ -26,6 +26,7 @@ import {
 } from '@/lib/appointments-range'
 import { APPOINTMENT_STATUS_LABEL } from '@/lib/appointment-status'
 import { cn } from '@/lib/utils'
+import { DoctorAvailabilityCard } from '@/components/doctor/DoctorAvailabilityCard'
 
 const fetcher = (url: string) =>
   fetch(url, { credentials: 'same-origin' }).then((r) => {
@@ -613,6 +614,8 @@ export default function DoctorDashboard() {
 
         {/* ===== RIGHT COLUMN (30%) — Contextual Panel ===== */}
         <aside className="space-y-6 lg:sticky lg:top-6 lg:h-fit">
+          {me?.role === 'DOCTOR' ? <DoctorAvailabilityCard /> : null}
+
           {/* Quick Glance Card */}
           <div className="overflow-hidden rounded-2xl border-0 bg-white p-6 shadow-sm">
             <h3 className="text-xs font-semibold uppercase tracking-widest text-slate-400">
