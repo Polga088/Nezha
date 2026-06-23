@@ -7,7 +7,6 @@ import {
   isDashboardFinancePath,
 } from '@/lib/auth-checks';
 import { getJwtSecretBytes } from '@/lib/jwt-env';
-import { runLicenseGate } from '@/lib/license-check';
 
 const JWT_SECRET = getJwtSecretBytes();
 
@@ -22,11 +21,6 @@ async function getPayload(token: string) {
 }
 
 export async function middleware(request: NextRequest) {
-  const licenseResponse = await runLicenseGate(request);
-  if (licenseResponse) {
-    return licenseResponse;
-  }
-
   const token = request.cookies.get('auth_token')?.value;
   const url = request.nextUrl.clone();
   const pathname = url.pathname;
@@ -291,7 +285,6 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     /*
-     * Presque toutes les routes : la licence est vérifiée en premier.
      * Exclut les assets Next.js et fichiers statiques courants.
      */
     '/((?!_next/static|_next/image|.*\\.(?:ico|png|jpg|jpeg|gif|svg|webp|woff2?|ttf|eot)$).*)',

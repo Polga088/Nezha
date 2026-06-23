@@ -7,7 +7,7 @@
  *
  * Convention suggérée :
  * - `core/auth/` — authentification et sessions
- * - `core/license/` — règles licence (si extrait plus tard depuis les routes)
+ * - `core/auth/` — authentification credentials
  * - `core/<domaine>/` — agrégats par domaine métier
  */
 

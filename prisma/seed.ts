@@ -2,15 +2,6 @@ import { prisma } from '../src/lib/prisma';
 import * as bcrypt from 'bcryptjs';
 
 async function main() {
-  await prisma.license.upsert({
-    where: { licenseKey: 'UST-DEMO-NEZHA-2026' },
-    create: {
-      licenseKey: 'UST-DEMO-NEZHA-2026',
-      expiresAt: null,
-    },
-    update: {},
-  });
-
   await prisma.globalSettings.upsert({
     where: { id: 'default' },
     create: {

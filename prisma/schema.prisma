@@ -100,19 +100,6 @@ enum NotificationType {
   SUCCESS
 }
 
-/// Licence logicielle (clé fournie par UST — une ligne par clé délivrée).
-model License {
-  id          String    @id @default(uuid())
-  /// Valeur secrète de la clé (colonne SQL `key`).
-  licenseKey  String    @unique @map("key")
-  activatedAt DateTime?
-  expiresAt   DateTime?
-  /// Identifiant machine / navigateur (liaison post-activation).
-  deviceId    String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-}
-
 /// Paramètres cabinet (ligne unique, id fixe `default`).
 model GlobalSettings {
   id                       String   @id @default("default")

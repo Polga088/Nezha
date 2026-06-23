@@ -1,0 +1,23 @@
+# Copier vers /etc/systemd/system/nezha.service puis :
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable nezha
+#   sudo systemctl start nezha
+# Adapter User, WorkingDirectory et EnvironmentFile.
+
+[Unit]
+Description=Nezha Medical (Next.js)
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/var/www/nezha/Nezha
+EnvironmentFile=/var/www/nezha/Nezha/.env
+Environment=NODE_ENV=production
+Environment=PORT=3001
+ExecStart=/usr/bin/npm run start
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
