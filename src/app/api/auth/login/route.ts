@@ -3,6 +3,7 @@ import {
   signJwt,
   AUTH_SESSION_MAX_AGE_SEC,
 } from '@/lib/auth';
+import { authCookieSecure } from '@/lib/auth-cookie';
 import { authenticateCredentials } from '@/core/auth/authenticate-credentials';
 
 export async function POST(request: Request) {
@@ -52,7 +53,7 @@ export async function POST(request: Request) {
       value: token,
       httpOnly: true,
       path: '/',
-      secure: process.env.NODE_ENV === 'production',
+      secure: authCookieSecure(),
       sameSite: 'lax',
       maxAge: AUTH_SESSION_MAX_AGE_SEC,
     });

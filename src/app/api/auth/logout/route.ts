@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { authCookieSecure } from '@/lib/auth-cookie';
 
 /** Cookie de session JWT (aligné sur login) — pas de cookie nommé `token` dans Nezha */
 export const AUTH_COOKIE_NAME = 'auth_token';
@@ -11,7 +12,7 @@ function clearSessionCookie(response: NextResponse) {
     httpOnly: true,
     path: '/',
     sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
+    secure: authCookieSecure(),
     maxAge: 0,
     expires: new Date(0),
   });

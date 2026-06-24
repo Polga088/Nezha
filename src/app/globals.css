@@ -115,6 +115,72 @@
   .dark body {
     @apply antialiased;
   }
+
+  /* Clinical Architect — focus ring cohérent et accessible sur tout le staff */
+  :where(a, button, [role="button"], input, select, textarea):focus-visible {
+    outline: none;
+    box-shadow:
+      0 0 0 2px hsl(var(--background)),
+      0 0 0 4px hsl(var(--ring) / 0.55);
+    border-radius: calc(var(--radius) - 4px);
+  }
+}
+
+/* Tonal scrollbars — discrètes, bleu-gris */
+@layer base {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(148 163 184 / 0.45) transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 9px;
+    height: 9px;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  *::-webkit-scrollbar-thumb {
+    background-color: rgb(148 163 184 / 0.4);
+    border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: rgb(100 116 139 / 0.55);
+  }
+}
+
+@layer components {
+  /* Surface "well" tonale — grande zone fonctionnelle (DESIGN.md §2) */
+  .clinical-surface {
+    @apply bg-[rgb(var(--clinical-surface-rgb))];
+  }
+
+  /* Carte / module de données — blanc qui "pop" sur le fond tonal */
+  .clinical-card {
+    @apply rounded-xl bg-white shadow-medical ring-1 ring-slate-900/[0.04] transition-shadow duration-300;
+  }
+  .clinical-card-hover {
+    @apply hover:shadow-medical-lg hover:ring-slate-900/[0.06];
+  }
+
+  /* En-tête de tableau haute densité (label uppercase) */
+  .clinical-th {
+    @apply bg-slate-50/80 px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500;
+  }
+  .clinical-td {
+    @apply px-4 py-3 text-sm text-slate-700;
+  }
+
+  /* Lignes sans bordures lourdes : "ghost border" en bas seulement */
+  .clinical-row {
+    @apply border-b border-slate-100 transition-colors hover:bg-slate-50/70;
+  }
+
+  /* CTA gradient médical signature */
+  .btn-medical {
+    @apply bg-gradient-to-b from-blue-500 to-blue-600 text-white shadow-medical-blue transition-all duration-200 hover:from-blue-600 hover:to-blue-700 active:scale-[0.98];
+  }
 }
 
 @layer utilities {

@@ -65,14 +65,23 @@ JWT_SECRET="${JWT_SECRET}"
 NODE_ENV="production"
 PORT="3001"
 NEXT_PUBLIC_APP_URL="${APP_URL}"
+AUTH_COOKIE_SECURE="false"
 EOF
 chmod 600 .env
 
 echo "==> Dépendances + base + seed"
-npm ci
+# NODE_ENV=production dans .env : inclure devDependencies (tailwind, autoprefixer…) pour le build
+npm ci --include=dev
 npx prisma generate
 npx prisma db push
-npx prisma db seed
+if ! npx prisma db seed; then
+  echo "==> Seed via tsx (repli Prisma 7)"
+  set -a
+  # shellcheck disable=SC1091
+  source .env
+  set +a
+  npx tsx prisma/seed.ts
+fi
 
 echo "==> Build production"
 npm run build
