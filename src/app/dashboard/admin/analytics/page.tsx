@@ -42,6 +42,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { formatCabinetMoney } from '@/lib/format-cabinet-money';
+import { FinanceExportButton } from '@/components/finance/FinanceExportButton';
 import { cn } from '@/lib/utils';
 
 import type {
@@ -118,6 +119,17 @@ export default function AdminAnalyticsPage() {
     revalidateOnFocus: false,
   });
 
+  const { data: me } = useSWR<{ role?: string }>(
+    '/api/auth/me',
+    async (url: string) => {
+      const res = await fetch(url, { credentials: 'same-origin' });
+      if (!res.ok) throw new Error('auth');
+      return res.json();
+    },
+    { revalidateOnFocus: true }
+  );
+  const isAdmin = String(me?.role ?? '').toUpperCase() === 'ADMIN';
+
   const pieData = useMemo(() => {
     if (!data?.paymentMethods?.length) return [];
     return data.paymentMethods.map((p) => ({
@@ -151,6 +163,7 @@ export default function AdminAnalyticsPage() {
           </p>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+          {isAdmin ? <FinanceExportButton /> : null}
           <div className="flex items-center gap-2">
             <span className="text-sm text-slate-500 whitespace-nowrap">Période</span>
             <Select

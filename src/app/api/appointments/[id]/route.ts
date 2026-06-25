@@ -5,6 +5,8 @@ import { colorForAppointmentType, parseAppointmentType } from '@/lib/appointment
 import { parseBookingChannel } from '@/lib/booking-channel';
 import { verifyJwt } from '@/lib/auth';
 import { notifyDoctorPatientInWaitingRoom } from '@/lib/notification-events';
+import { syncDoctorStatusOnConsultation } from '@/lib/doctor-status-helpers';
+import { broadcastUserStatus } from '@/lib/pusher-server';
 import type { NextRequest } from 'next/server';
 import type { AppointmentStatus } from '@/generated/prisma/client';
 
@@ -203,6 +205,25 @@ export async function PUT(
         });
       } catch (notifyErr) {
         console.error('[PUT /api/appointments/:id] notification', notifyErr);
+      }
+    }
+
+    if (updated.statut === 'IN_PROGRESS' && existing.statut !== 'IN_PROGRESS') {
+      try {
+        await syncDoctorStatusOnConsultation(updated.doctor_id, 'start');
+        const doc = await prisma.user.findUnique({
+          where: { id: updated.doctor_id },
+          select: { userStatus: true, userStatusChangedAt: true },
+        });
+        if (doc) {
+          await broadcastUserStatus({
+            userId: updated.doctor_id,
+            userStatus: doc.userStatus,
+            userStatusChangedAt: doc.userStatusChangedAt.toISOString(),
+          });
+        }
+      } catch (syncErr) {
+        console.error('[PUT /api/appointments/:id] sync doctor status', syncErr);
       }
     }
 

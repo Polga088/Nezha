@@ -1,7 +1,7 @@
 'use client'
 
 import { useFormContext } from 'react-hook-form'
-import { Shield } from 'lucide-react'
+import { Shield, Loader2 } from 'lucide-react'
 
 import {
   FormControl,
@@ -18,12 +18,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { ASSURANCE_TYPE_VALUES, ASSURANCE_TYPE_LABELS } from '@/lib/assurance-types'
-import type { AssuranceTypeValue } from '@/lib/assurance-types'
+import { useInsuranceTypes } from '@/hooks/useInsuranceTypes'
 
 /** Champs assurance — à utiliser dans un `<Form>` (react-hook-form). */
 export type PatientAssuranceFieldValues = {
-  assuranceType: AssuranceTypeValue
+  insuranceTypeId: string
   matriculeAssurance: string
 }
 
@@ -46,37 +45,47 @@ function SectionTitle({
   )
 }
 
-/** Section « Couverture sociale » — champs Prisma `assuranceType` & `matriculeAssurance`. */
+/** Section « Couverture sociale » — liste dynamique admin + matricule. */
 export function PatientAssuranceFormSection() {
-  const { control } = useFormContext()
+  const { control, watch } = useFormContext<PatientAssuranceFieldValues>()
+  const currentId = watch('insuranceTypeId')
+  const { types, isLoading } = useInsuranceTypes(currentId || undefined)
 
   return (
     <div className="rounded-xl border border-slate-200/60 bg-slate-50/60 p-5 shadow-medical space-y-4">
       <SectionTitle icon={Shield} label="Couverture sociale" />
       <p className="-mt-1 text-xs text-slate-500">
-        Régimes CNSS, CNOPS, FAR, RAMID, mutuelle ou aucune couverture — aligné sur le dossier patient.
+        Organismes configurés par l’administration — CNSS, mutuelle, etc.
       </p>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <FormField
           control={control}
-          name="assuranceType"
+          name="insuranceTypeId"
           render={({ field }) => (
             <FormItem>
               <FormLabel>Type d&apos;assurance</FormLabel>
               <Select
-                value={field.value ?? 'AUCUNE'}
+                value={field.value || ''}
                 onValueChange={field.onChange}
+                disabled={isLoading}
               >
                 <FormControl>
                   <SelectTrigger aria-label="Type d'assurance">
-                    <SelectValue placeholder="Sélectionner" />
+                    {isLoading ? (
+                      <span className="flex items-center gap-2 text-slate-400">
+                        <Loader2 className="h-3 w-3 animate-spin" /> Chargement…
+                      </span>
+                    ) : (
+                      <SelectValue placeholder="Sélectionner" />
+                    )}
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  {ASSURANCE_TYPE_VALUES.map((v) => (
-                    <SelectItem key={v} value={v}>
-                      {ASSURANCE_TYPE_LABELS[v]}
+                  {types.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>
+                      {t.name}
+                      {!t.isActive ? ' (inactif)' : ''}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -99,11 +108,7 @@ export function PatientAssuranceFormSection() {
                     aria-label="Numéro d'immatriculation assurance"
                     className="pr-14"
                     {...field}
-                    value={field.value ?? ''}
                   />
-                  <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-medium uppercase tracking-wide text-slate-400">
-                    si applicable
-                  </span>
                 </div>
               </FormControl>
               <FormMessage />

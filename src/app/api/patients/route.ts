@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyJwt } from '@/lib/auth';
 import type { NextRequest } from 'next/server';
-import type { AssuranceType } from '@/generated/prisma/client';
-import { parseAssuranceType, parseOptionalFloat, parseSexe } from '@/lib/patient-fields';
+import { parseOptionalFloat, parseSexe } from '@/lib/patient-fields';
+import { resolvePatientInsuranceInput } from '@/lib/patient-insurance-resolve';
 
 async function getUser(request: NextRequest) {
   const token = request.cookies.get('auth_token')?.value;
@@ -82,6 +82,7 @@ export async function POST(request: NextRequest) {
       taille: tailleRaw,
       poids: poidsRaw,
       assuranceType: assuranceRaw,
+      insuranceTypeId: insuranceTypeIdRaw,
       matriculeAssurance: matriculeAssuranceRaw,
     } = body;
 
@@ -114,19 +115,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Poids hors plage (1–500 kg)' }, { status: 400 });
     }
 
-    let assuranceType: AssuranceType = 'AUCUNE';
-    if (assuranceRaw !== undefined && assuranceRaw !== null && assuranceRaw !== '') {
-      const parsed = parseAssuranceType(assuranceRaw);
-      if (parsed === undefined) {
-        return NextResponse.json({ error: 'Type d’assurance invalide' }, { status: 400 });
-      }
-      assuranceType = parsed;
+    const insuranceResolved = await resolvePatientInsuranceInput({
+      insuranceTypeId: insuranceTypeIdRaw,
+      assuranceType: assuranceRaw,
+      matriculeAssurance: matriculeAssuranceRaw,
+    });
+    if (!insuranceResolved.ok) {
+      return NextResponse.json(
+        { error: insuranceResolved.error },
+        { status: insuranceResolved.status }
+      );
     }
 
-    const matriculeAssurance =
-      matriculeAssuranceRaw !== undefined && matriculeAssuranceRaw !== null && String(matriculeAssuranceRaw).trim() !== ''
-        ? String(matriculeAssuranceRaw).trim().slice(0, 200)
-        : undefined;
+    const { assuranceType, insuranceTypeId, matriculeAssurance } = insuranceResolved.data;
 
     const telTrimmed =
       tel === undefined || tel === null ? '' : String(tel).trim();
@@ -148,7 +149,8 @@ export async function POST(request: NextRequest) {
         taille,
         poids,
         assuranceType,
-        matriculeAssurance,
+        insuranceTypeId,
+        matriculeAssurance: matriculeAssurance ?? undefined,
       },
     });
 

@@ -77,11 +77,14 @@ enum AssuranceType {
   AUTRE
 }
 
-/// Disponibilité pour la messagerie interne (équipe soignante).
+/// Disponibilité pour la messagerie interne et la file d'attente (équipe soignante).
 enum UserStatus {
   AVAILABLE
   BUSY
+  IN_CONSULTATION
+  ON_BREAK
   AWAY
+  DONE_TODAY
   OFFLINE
 }
 
@@ -295,6 +298,9 @@ model Patient {
   poids           Float?
   assuranceType       AssuranceType @default(AUCUNE)
   matriculeAssurance  String?
+  /// Référence dynamique (admin) — prioritaire à l’affichage si renseignée.
+  insuranceTypeId     String?       @map("insurance_type_id")
+  insuranceTypeRef    InsuranceType? @relation(fields: [insuranceTypeId], references: [id], onDelete: SetNull)
 
   appointments      Appointment[]
   /// Fichiers rattachés au dossier patient (hors documents de consultation).
@@ -308,8 +314,23 @@ model Patient {
   /// Factures / encaissements rattachés au patient (avec ou sans rendez-vous).
   invoices          Invoice[]
 
+  @@index([insuranceTypeId])
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
+}
+
+/// Types d’assurance configurables par l’administration.
+model InsuranceType {
+  id          String    @id @default(uuid())
+  name        String
+  code        String    @unique
+  description String?
+  isActive    Boolean   @default(true)
+  patients    Patient[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("InsuranceType")
 }
 
 /// Consultation dossier patient — constantes + diagnostic (hors flux RDV `ConsultationRecord`).

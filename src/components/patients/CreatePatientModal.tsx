@@ -25,7 +25,6 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { Form } from '@/components/ui/form';
 import { PatientAssuranceFormSection } from '@/components/patients/PatientForm';
-import { ASSURANCE_TYPE_VALUES } from '@/lib/assurance-types';
 import { zOptionalPatientTel } from '@/lib/patient-fields';
 import { cn } from '@/lib/utils';
 
@@ -51,7 +50,7 @@ export type PatientCreatePayload = {
   poids?: number;
   allergies?: string;
   antecedents?: string;
-  assuranceType?: string;
+  insuranceTypeId?: string;
   matriculeAssurance?: string;
 };
 
@@ -69,9 +68,7 @@ const formSchema = z.object({
   poids: z.string(),
   allergies: z.string(),
   antecedents: z.string(),
-  assuranceType: z.enum(
-    ASSURANCE_TYPE_VALUES as unknown as [string, ...string[]]
-  ),
+  insuranceTypeId: z.string(),
   matriculeAssurance: z.string().max(200),
 });
 
@@ -91,7 +88,7 @@ const DEFAULTS: FormValues = {
   poids: '',
   allergies: '',
   antecedents: '',
-  assuranceType: 'AUCUNE',
+  insuranceTypeId: '',
   matriculeAssurance: '',
 };
 
@@ -229,7 +226,9 @@ export function CreatePatientModal({
       poids,
       allergies: allergiesTrim === '' ? undefined : allergiesTrim,
       antecedents: antecedentsTrim === '' ? undefined : antecedentsTrim,
-      assuranceType: values.assuranceType,
+      ...(values.insuranceTypeId ?
+        { insuranceTypeId: values.insuranceTypeId }
+      : {}),
       ...(matriculeAssuranceTrim !== ''
         ? { matriculeAssurance: matriculeAssuranceTrim }
         : {}),

@@ -25,9 +25,8 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Form } from '@/components/ui/form';
-import { ASSURANCE_TYPE_VALUES } from '@/lib/assurance-types';
-import { zOptionalPatientTel } from '@/lib/patient-fields';
 import { PatientAssuranceFormSection } from '@/components/patients/PatientForm';
+import { zOptionalPatientTel } from '@/lib/patient-fields';
 
 const formSchema = z.object({
   nom: z.string().min(1, 'Nom requis').min(2, 'Au moins 2 caractères'),
@@ -43,9 +42,7 @@ const formSchema = z.object({
   poids: z.string(),
   allergies: z.string(),
   antecedents: z.string(),
-  assuranceType: z.enum(
-    ASSURANCE_TYPE_VALUES as unknown as [string, ...string[]]
-  ),
+  insuranceTypeId: z.string(),
   matriculeAssurance: z.string().max(200),
 });
 
@@ -65,7 +62,7 @@ const EMPTY_FORM: FormValues = {
   poids: '',
   allergies: '',
   antecedents: '',
-  assuranceType: 'AUCUNE',
+  insuranceTypeId: '',
   matriculeAssurance: '',
 };
 
@@ -96,15 +93,6 @@ function mapGroupeSanguin(
     : 'INCONNU';
 }
 
-function mapAssuranceType(
-  raw: string | null | undefined
-): FormValues['assuranceType'] {
-  if (!raw) return 'AUCUNE';
-  return (ASSURANCE_TYPE_VALUES as readonly string[]).includes(raw)
-    ? (raw as FormValues['assuranceType'])
-    : 'AUCUNE';
-}
-
 export type PatientForEdit = {
   id: string;
   nom: string;
@@ -120,6 +108,7 @@ export type PatientForEdit = {
   poids?: number | null;
   allergies?: string | null;
   antecedents?: string | null;
+  insuranceTypeId?: string | null;
   assuranceType?: string | null;
   matriculeAssurance?: string | null;
 };
@@ -139,7 +128,7 @@ function patientToFormValues(p: PatientForEdit): FormValues {
     poids: p.poids != null && Number.isFinite(p.poids) ? String(p.poids) : '',
     allergies: p.allergies ?? '',
     antecedents: p.antecedents ?? '',
-    assuranceType: mapAssuranceType(p.assuranceType ?? undefined),
+    insuranceTypeId: p.insuranceTypeId ?? '',
     matriculeAssurance: p.matriculeAssurance ?? '',
   };
 }
@@ -246,7 +235,7 @@ export function EditPatientModal({
     }
 
     const matriculeTrim = values.matriculeAssurance.trim();
-    body.assuranceType = values.assuranceType;
+    body.insuranceTypeId = values.insuranceTypeId;
     body.matriculeAssurance = matriculeTrim === '' ? '' : matriculeTrim;
 
     try {

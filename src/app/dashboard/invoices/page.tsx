@@ -31,6 +31,7 @@ import { DataTableShell } from '@/components/ui/data-table-shell';
 import { ClinicalHero } from '@/components/ui/clinical-hero';
 import { MetricCard } from '@/components/ui/metric-card';
 import { DashboardSection } from '@/components/ui/dashboard-section';
+import { FinanceExportButton } from '@/components/finance/FinanceExportButton';
 import { EmptyState } from '@/components/ui/empty-state';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { useSettings } from '@/hooks/useSettings';
@@ -249,9 +250,12 @@ export default function InvoicesPage() {
         title="Facturation & Paiements"
         description="Suivez les encaissements, impayés et factures émises."
         actions={
-          <Button size="lg" className="gap-2 rounded-xl" onClick={() => setIsModalOpen(true)}>
-            + Créer une facture
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            {roleUpper === 'ADMIN' ? <FinanceExportButton /> : null}
+            <Button size="lg" className="gap-2 rounded-xl" onClick={() => setIsModalOpen(true)}>
+              + Créer une facture
+            </Button>
+          </div>
         }
       />
 

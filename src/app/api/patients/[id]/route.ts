@@ -3,7 +3,8 @@ import { prisma } from '@/lib/prisma';
 import { verifyJwt } from '@/lib/auth';
 import type { NextRequest } from 'next/server';
 import type { AssuranceType, Prisma } from '@/generated/prisma/client';
-import { parseAssuranceType, parseOptionalFloat, parseSexe } from '@/lib/patient-fields';
+import { parseOptionalFloat, parseSexe } from '@/lib/patient-fields';
+import { resolvePatientInsuranceInput } from '@/lib/patient-insurance-resolve';
 
 // helper pour auth
 async function getUser(request: NextRequest) {
@@ -126,6 +127,7 @@ export async function PUT(
       taille: tailleRaw,
       poids: poidsRaw,
       assuranceType: assuranceRaw,
+      insuranceTypeId: insuranceTypeIdRaw,
       matriculeAssurance: matriculeAssuranceRaw,
     } = body;
 
@@ -147,24 +149,38 @@ export async function PUT(
       return NextResponse.json({ error: 'Poids hors plage (1–500 kg)' }, { status: 400 });
     }
 
-    let assurancePatch: { assuranceType?: AssuranceType; matriculeAssurance?: string | null } = {};
-    if (assuranceRaw !== undefined) {
-      if (assuranceRaw === null || assuranceRaw === '') {
-        assurancePatch = { assuranceType: 'AUCUNE', matriculeAssurance: null };
-      } else {
-        const parsed = parseAssuranceType(assuranceRaw);
-        if (parsed === undefined) {
-          return NextResponse.json({ error: 'Type d’assurance invalide' }, { status: 400 });
-        }
-        assurancePatch = { assuranceType: parsed };
+    const existingPatient = await prisma.patient.findUnique({
+      where: { id },
+      select: { insuranceTypeId: true },
+    });
+
+    let assurancePatch: {
+      assuranceType?: AssuranceType;
+      insuranceTypeId?: string | null;
+      matriculeAssurance?: string | null;
+    } = {};
+
+    if (
+      insuranceTypeIdRaw !== undefined ||
+      assuranceRaw !== undefined ||
+      matriculeAssuranceRaw !== undefined
+    ) {
+      const resolved = await resolvePatientInsuranceInput({
+        insuranceTypeId: insuranceTypeIdRaw,
+        assuranceType: assuranceRaw,
+        matriculeAssurance: matriculeAssuranceRaw,
+        allowInactiveId: existingPatient?.insuranceTypeId,
+      });
+      if (!resolved.ok) {
+        return NextResponse.json({ error: resolved.error }, { status: resolved.status });
       }
-    }
-    if (matriculeAssuranceRaw !== undefined) {
-      const m =
-        matriculeAssuranceRaw === null || String(matriculeAssuranceRaw).trim() === ''
-          ? null
-          : String(matriculeAssuranceRaw).trim().slice(0, 200);
-      assurancePatch = { ...assurancePatch, matriculeAssurance: m };
+      assurancePatch = {
+        assuranceType: resolved.data.assuranceType,
+        insuranceTypeId: resolved.data.insuranceTypeId,
+        ...(resolved.data.matriculeAssurance !== undefined ?
+          { matriculeAssurance: resolved.data.matriculeAssurance }
+        : {}),
+      };
     }
 
     const updatedPatient = await prisma.patient.update({

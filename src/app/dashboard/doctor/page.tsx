@@ -27,6 +27,7 @@ import {
 import { APPOINTMENT_STATUS_LABEL } from '@/lib/appointment-status'
 import { cn } from '@/lib/utils'
 import { DoctorAvailabilityCard } from '@/components/doctor/DoctorAvailabilityCard'
+import { DoctorStatusQuickCard } from '@/components/doctor/DoctorStatusQuickCard'
 import { ClinicalHero } from '@/components/ui/clinical-hero'
 import { MetricCard } from '@/components/ui/metric-card'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -587,7 +588,12 @@ export default function DoctorDashboard() {
 
         {/* ===== RIGHT COLUMN (30%) — Contextual Panel ===== */}
         <aside className="space-y-6 lg:sticky lg:top-6 lg:h-fit">
-          {me?.role === 'DOCTOR' ? <DoctorAvailabilityCard /> : null}
+          {me?.role === 'DOCTOR' ? (
+            <>
+              <DoctorStatusQuickCard />
+              <DoctorAvailabilityCard />
+            </>
+          ) : null}
 
           {/* Quick Glance Card */}
           <div className="overflow-hidden rounded-2xl border-0 bg-white p-6 shadow-sm">

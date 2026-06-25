@@ -16,7 +16,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
-import type { UserStatusType } from '@/lib/user-status';
+import { statusDotSolid, type UserStatusType } from '@/lib/user-status';
 import { getPusherClient } from '@/lib/pusher-client';
 
 export type { UserStatusType } from '@/lib/user-status';
@@ -55,16 +55,7 @@ type ChatMsg = {
 };
 
 function statusDotClass(s: UserStatusType): string {
-  switch (s) {
-    case 'AVAILABLE':
-      return 'bg-emerald-500';
-    case 'BUSY':
-      return 'bg-amber-400';
-    case 'AWAY':
-      return 'bg-red-500';
-    default:
-      return 'bg-slate-400';
-  }
+  return statusDotSolid(s);
 }
 
 export function ChatPanel() {

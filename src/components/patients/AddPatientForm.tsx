@@ -26,7 +26,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
-import { ASSURANCE_TYPE_VALUES } from '@/lib/assurance-types';
 import { zOptionalPatientTel } from '@/lib/patient-fields';
 import { PatientAssuranceFormSection } from '@/components/patients/PatientForm';
 
@@ -44,9 +43,7 @@ const patientSchema = z.object({
   email: z.union([z.literal(''), z.string().email('Email invalide')]),
   adresse: z.string(),
 
-  assuranceType: z.enum(
-    ASSURANCE_TYPE_VALUES as unknown as [string, ...string[]]
-  ),
+  insuranceTypeId: z.string(),
   matriculeAssurance: z.string().max(200),
 
   // Informations médicales
@@ -68,7 +65,7 @@ const DEFAULT_PATIENT_VALUES: PatientFormValues = {
   tel: '',
   email: '',
   adresse: '',
-  assuranceType: 'AUCUNE',
+  insuranceTypeId: '',
   matriculeAssurance: '',
   groupeSanguin: 'A+',
   taille: '',
@@ -141,6 +138,9 @@ export default function AddPatientForm({ onSuccess, onCancel }: AddPatientFormPr
 
       const payload = {
         ...values,
+        ...(values.insuranceTypeId ?
+          { insuranceTypeId: values.insuranceTypeId }
+        : {}),
         matriculeAssurance: matriculeTrim === '' ? undefined : matriculeTrim,
         taille:
           taille !== undefined && Number.isFinite(taille) ? taille : undefined,
@@ -447,7 +447,7 @@ export default function AddPatientForm({ onSuccess, onCancel }: AddPatientFormPr
           />
         </div>
 
-        {/* ── Couverture sociale (Prisma: assuranceType, matriculeAssurance) — juste après antécédents ─ */}
+        {/* ── Couverture sociale (insuranceTypeId dynamique admin) — juste après antécédents ─ */}
         <PatientAssuranceFormSection />
 
         {/* ── ACTIONS ──────────────────────────────────────────────────── */}

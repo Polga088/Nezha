@@ -3,12 +3,15 @@
 import { useEffect, useMemo, useState } from 'react';
 import useSWR, { mutate as globalMutate } from 'swr';
 import { differenceInMinutes } from 'date-fns';
-import { UserCheck, Clock, ShieldAlert, Loader2, Radio } from 'lucide-react';
+import { Loader2, Radio, ShieldAlert, UserCheck } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import type { UserStatusType } from '@/lib/user-status';
+import {
+  statusPresentation,
+  type UserStatusType,
+} from '@/lib/user-status';
 import { getPusherClient } from '@/lib/pusher-client';
 
 const DOCTOR_STATUS_KEY = '/api/assistant/doctor-status';
@@ -24,62 +27,21 @@ type DoctorRow = {
   nom: string;
   email: string;
   userStatus: UserStatusType;
+  effectiveStatus: UserStatusType;
   userStatusChangedAt: string;
+  canReceivePatient: boolean;
+  inConsultation: boolean;
+  inConsultationPatient?: { prenom: string; nom: string } | null;
 };
 
-function statusPresentation(s: UserStatusType): {
-  label: string;
-  Icon: typeof UserCheck;
-  bar: string;
-  iconWrap: string;
-} {
-  switch (s) {
-    case 'AVAILABLE':
-      return {
-        label: 'Disponible',
-        Icon: UserCheck,
-        bar: 'from-emerald-500 to-emerald-600',
-        iconWrap: 'bg-emerald-500 text-white shadow-emerald-500/30',
-      };
-    case 'BUSY':
-      return {
-        label: 'Occupé',
-        Icon: Clock,
-        bar: 'from-amber-500 to-amber-600',
-        iconWrap: 'bg-amber-500 text-white shadow-amber-500/30',
-      };
-    case 'AWAY':
-      return {
-        label: 'Absent',
-        Icon: ShieldAlert,
-        bar: 'from-rose-500 to-rose-600',
-        iconWrap: 'bg-rose-500 text-white shadow-rose-500/30',
-      };
-    default:
-      return {
-        label: 'Hors ligne',
-        Icon: ShieldAlert,
-        bar: 'from-slate-400 to-slate-500',
-        iconWrap: 'bg-slate-400 text-white shadow-slate-400/30',
-      };
-  }
-}
-
-/** Texte du type « Occupé depuis 15 min » */
 function elapsedLabel(statusLabel: string, iso: string): string {
-  const start = new Date(iso);
-  const mins = differenceInMinutes(new Date(), start);
+  const mins = differenceInMinutes(new Date(), new Date(iso));
   if (mins < 1) return `${statusLabel} — à l’instant`;
   if (mins < 60) return `${statusLabel} depuis ${mins} min`;
   const h = Math.floor(mins / 60);
   const m = mins % 60;
-  if (h < 24) {
-    return m > 0
-      ? `${statusLabel} depuis ${h} h ${m} min`
-      : `${statusLabel} depuis ${h} h`;
-  }
-  const d = Math.floor(h / 24);
-  return `${statusLabel} depuis ${d} j`;
+  if (h < 24) return m > 0 ? `${statusLabel} depuis ${h} h ${m} min` : `${statusLabel} depuis ${h} h`;
+  return `${statusLabel} depuis ${Math.floor(h / 24)} j`;
 }
 
 export function DoctorStatusBanner() {
@@ -87,27 +49,25 @@ export function DoctorStatusBanner() {
     typeof process.env.NEXT_PUBLIC_PUSHER_KEY === 'string' &&
     process.env.NEXT_PUBLIC_PUSHER_KEY.length > 0;
 
-  const { data: me } = useSWR<{ id: string; role: string }>(
-    '/api/auth/me',
-    fetcher,
-    { revalidateOnFocus: true }
-  );
+  const { data: me } = useSWR<{ id: string; role: string }>('/api/auth/me', fetcher, {
+    revalidateOnFocus: true,
+  });
 
-  const { data, isLoading } = useSWR<{ doctor: DoctorRow | null }>(
+  const { data, isLoading, mutate } = useSWR<{ doctor: DoctorRow | null }>(
     DOCTOR_STATUS_KEY,
     fetcher,
-    { refreshInterval: useRealtime ? 0 : 45_000 }
+    { refreshInterval: useRealtime ? 0 : 30_000 }
   );
 
   const doctor = data?.doctor ?? null;
   const [tick, setTick] = useState(0);
+  const [sending, setSending] = useState(false);
 
   useEffect(() => {
     const id = setInterval(() => setTick((t) => t + 1), 30_000);
     return () => clearInterval(id);
   }, []);
 
-  /** Temps réel : même canal que la messagerie (`user-status`). */
   useEffect(() => {
     if (!useRealtime || me?.role !== 'ASSISTANT' || !me?.id || !doctor?.id) return;
     const pusher = getPusherClient();
@@ -118,27 +78,9 @@ export function DoctorStatusBanner() {
 
     channel.bind(
       'user-status',
-      (payload: {
-        userId: string;
-        userStatus: UserStatusType;
-        userStatusChangedAt?: string;
-      }) => {
+      (payload: { userId: string; userStatus: UserStatusType; userStatusChangedAt?: string }) => {
         if (payload.userId !== doctorId) return;
-        globalMutate(
-          DOCTOR_STATUS_KEY,
-          (prev: { doctor: DoctorRow | null } | undefined) => {
-            if (!prev?.doctor || prev.doctor.id !== payload.userId) return prev;
-            return {
-              doctor: {
-                ...prev.doctor,
-                userStatus: payload.userStatus,
-                userStatusChangedAt:
-                  payload.userStatusChangedAt ?? prev.doctor.userStatusChangedAt,
-              },
-            };
-          },
-          { revalidate: false }
-        );
+        void mutate();
       }
     );
 
@@ -146,22 +88,15 @@ export function DoctorStatusBanner() {
       channel.unbind_all();
       pusher.unsubscribe(`private-user-${me.id}`);
     };
-  }, [useRealtime, me?.role, me?.id, doctor?.id]);
+  }, [useRealtime, me?.role, me?.id, doctor?.id, mutate]);
 
-  const presentation = useMemo(
-    () => statusPresentation(doctor?.userStatus ?? 'OFFLINE'),
-    [doctor?.userStatus]
-  );
+  const effective = doctor?.effectiveStatus ?? 'OFFLINE';
+  const presentation = useMemo(() => statusPresentation(effective), [effective]);
 
   const subtitle = useMemo(() => {
     if (!doctor?.userStatusChangedAt) return null;
-    return elapsedLabel(
-      statusPresentation(doctor.userStatus).label,
-      doctor.userStatusChangedAt
-    );
-  }, [doctor?.userStatus, doctor?.userStatusChangedAt, tick]);
-
-  const [sending, setSending] = useState(false);
+    return elapsedLabel(presentation.label, doctor.userStatusChangedAt);
+  }, [doctor?.userStatusChangedAt, presentation.label, tick]);
 
   const sendSignal = async () => {
     if (!doctor?.id || sending) return;
@@ -188,57 +123,69 @@ export function DoctorStatusBanner() {
 
   if (isLoading && !data) {
     return (
-      <div className="mb-6 flex items-center gap-3 rounded-xl border border-outline-variant/15 bg-container-lowest/80 p-4 shadow-medical backdrop-blur-md">
-        <Loader2 className="h-5 w-5 animate-spin text-on-surface-variant" />
-        <span className="text-sm text-on-surface-variant">Chargement du statut praticien…</span>
+      <div className="mb-6 flex items-center gap-3 rounded-2xl border border-[#E2E8F0] bg-white p-4">
+        <Loader2 className="h-5 w-5 animate-spin text-[#64748B]" />
+        <span className="text-sm text-[#64748B]">Chargement du statut praticien…</span>
       </div>
     );
   }
 
   if (!doctor) {
     return (
-      <div className="mb-6 rounded-xl border border-outline-variant/15 bg-amber-50/90 px-4 py-3 text-sm text-amber-950 shadow-medical">
+      <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
         Aucun médecin actif n’est référencé pour la visibilité temps réel.
       </div>
     );
   }
 
-  const { Icon, bar, iconWrap } = presentation;
-
   return (
-    <div className="mb-6 overflow-hidden rounded-xl border border-outline-variant/15 bg-container-lowest shadow-medical">
-      <div
-        className={cn(
-          'h-1.5 w-full bg-gradient-to-r',
-          bar
-        )}
-      />
-      <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="mb-6 overflow-hidden rounded-2xl border border-[#E2E8F0] bg-white shadow-sm">
+      <div className={cn('h-1.5 w-full bg-gradient-to-r', presentation.bar)} />
+      <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-start gap-4">
           <div
             className={cn(
-              'flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl shadow-lg',
-              iconWrap
+              'flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl shadow-md',
+              presentation.iconWrap
             )}
           >
-            <Icon className="h-6 w-6" strokeWidth={2.2} aria-hidden />
+            <UserCheck className="h-6 w-6" strokeWidth={2} aria-hidden />
           </div>
           <div className="min-w-0 space-y-1">
             <div className="flex flex-wrap items-center gap-2">
-              <Radio className="h-3.5 w-3.5 text-on-surface-variant" aria-hidden />
-              <span className="text-xs font-semibold uppercase tracking-wide text-on-surface-variant">
-                Temps réel — praticien (Pusher)
+              <Radio className="h-3.5 w-3.5 text-[#64748B]" aria-hidden />
+              <span className="text-xs font-semibold uppercase tracking-wide text-[#64748B]">
+                Statut praticien
+              </span>
+              <span
+                className={cn(
+                  'inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold',
+                  presentation.badge
+                )}
+              >
+                {presentation.label}
               </span>
             </div>
-            <p className="truncate text-lg font-semibold tracking-tight text-on-surface">{doctor.nom}</p>
-            <p className="text-sm font-medium text-on-surface-variant">{subtitle}</p>
+            <p className="truncate text-lg font-semibold text-[#172033]">{doctor.nom}</p>
+            <p className="text-sm text-[#64748B]">{subtitle}</p>
+            {doctor.inConsultationPatient ? (
+              <p className="text-sm font-medium text-blue-700">
+                En consultation : {doctor.inConsultationPatient.prenom}{' '}
+                {doctor.inConsultationPatient.nom}
+              </p>
+            ) : null}
+            <p className="text-xs font-medium text-[#64748B]">
+              {doctor.canReceivePatient ?
+                '✓ Le médecin peut recevoir un patient'
+              : '✗ Patient non recevable pour le moment'}
+            </p>
           </div>
         </div>
         <Button
           type="button"
           variant="outline"
           className="shrink-0 border-rose-200 bg-rose-50/80 text-rose-800 hover:bg-rose-100"
-          disabled={sending}
+          disabled={sending || doctor.canReceivePatient}
           onClick={sendSignal}
         >
           {sending ? (
@@ -249,9 +196,8 @@ export function DoctorStatusBanner() {
           Envoyer un signal
         </Button>
       </div>
-      <p className="border-t border-outline-variant/15 px-4 py-2 text-[11px] text-on-surface-variant">
-        Prévient discrètement le médecin si patient en attente prolongée. Le signal apparaît sur son
-        écran (notification + flash).
+      <p className="border-t border-[#E2E8F0] px-5 py-2 text-[11px] text-[#64748B]">
+        Signal discret si attente prolongée — notification sur l’écran du médecin.
       </p>
     </div>
   );

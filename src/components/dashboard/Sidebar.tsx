@@ -6,8 +6,11 @@ import { usePathname } from 'next/navigation';
 import useSWR, { mutate as globalMutate } from 'swr';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { statusAvatarRing } from '@/lib/user-status';
-import type { UserStatusType } from '@/lib/user-status';
+import {
+  USER_STATUS_LABELS,
+  statusAvatarRing,
+  type UserStatusType,
+} from '@/lib/user-status';
 import {
   BarChart3,
   CalendarDays,
@@ -16,6 +19,7 @@ import {
   LayoutDashboard,
   Receipt,
   Settings,
+  ShieldCheck,
   Users,
   Wallet,
 } from 'lucide-react';
@@ -255,6 +259,16 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
               </>
             )}
             {navLink(
+              '/dashboard/admin/insurance-types',
+              `${styles.navItem} ${styles.navSubItem} ${pathname.startsWith('/dashboard/admin/insurance-types') ? styles.active : ''}`,
+              <>
+                <span className="inline-flex w-5 shrink-0 justify-center">
+                  <ShieldCheck size={16} strokeWidth={2} aria-hidden />
+                </span>
+                Assurances
+              </>
+            )}
+            {navLink(
               '/dashboard/admin/settings',
               `${styles.navItem} ${styles.navSubItem} ${pathname.startsWith('/dashboard/admin/settings') ? styles.active : ''}`,
               <>
@@ -304,10 +318,11 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
                   <SelectValue placeholder="Statut" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="AVAILABLE">Disponible</SelectItem>
-                  <SelectItem value="BUSY">Occupé</SelectItem>
-                  <SelectItem value="AWAY">Absent</SelectItem>
-                  <SelectItem value="OFFLINE">Hors ligne</SelectItem>
+                  {(['AVAILABLE', 'BUSY', 'IN_CONSULTATION', 'ON_BREAK', 'AWAY', 'DONE_TODAY', 'OFFLINE'] as UserStatusType[]).map((v) => (
+                    <SelectItem key={v} value={v}>
+                      {USER_STATUS_LABELS[v]}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
