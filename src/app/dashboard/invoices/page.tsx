@@ -28,7 +28,9 @@ import { Button } from '@/components/ui/button';
 import { InvoiceModal } from '@/components/invoices/InvoiceModal';
 import { Input } from '@/components/ui/input';
 import { DataTableShell } from '@/components/ui/data-table-shell';
-import { DashboardHero } from '@/components/ui/dashboard-hero';
+import { ClinicalHero } from '@/components/ui/clinical-hero';
+import { MetricCard } from '@/components/ui/metric-card';
+import { DashboardSection } from '@/components/ui/dashboard-section';
 import { EmptyState } from '@/components/ui/empty-state';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { useSettings } from '@/hooks/useSettings';
@@ -227,23 +229,58 @@ export default function InvoicesPage() {
       patientLabel(i).toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const totalPaid = list
+    .filter((i) => i.statut === 'PAID')
+    .reduce((s, i) => s + i.montant, 0);
+  const totalPending = list
+    .filter((i) => i.statut === 'PENDING')
+    .reduce((s, i) => s + i.montant, 0);
+  const pendingCount = list.filter((i) => i.statut === 'PENDING').length;
+
   const pdfDateLabel = pdfInvoice
     ? format(new Date(pdfInvoice.createdAt), 'dd/MM/yyyy', { locale: fr })
     : '';
 
   return (
     <div className="animate-fade-in space-y-6 pb-10">
-      <DashboardHero
+      <ClinicalHero
         icon={CreditCard}
         eyebrow="Finance"
         title="Facturation & Paiements"
-        description="Gérez la facturation et suivez les règlements de vos patients."
+        description="Suivez les encaissements, impayés et factures émises."
         actions={
-          <Button size="lg" className="gap-2 bg-white text-blue-700 hover:bg-blue-50" onClick={() => setIsModalOpen(true)}>
+          <Button size="lg" className="gap-2 rounded-xl" onClick={() => setIsModalOpen(true)}>
             + Créer une facture
           </Button>
         }
       />
+
+      <DashboardSection title="Résumé financier" bento>
+        <MetricCard
+          label="Total encaissé"
+          value={invoicesLoading ? '—' : `${totalPaid.toFixed(0)} ${invoiceAmountSuffix}`}
+          icon={CheckCircle}
+          accent="emerald"
+        />
+        <MetricCard
+          label="En attente"
+          value={invoicesLoading ? '—' : `${totalPending.toFixed(0)} ${invoiceAmountSuffix}`}
+          icon={CreditCard}
+          accent="amber"
+        />
+        <MetricCard
+          label="Factures en attente"
+          value={invoicesLoading ? '—' : String(pendingCount)}
+          icon={FileText}
+          accent="cyan"
+        />
+        <MetricCard
+          label="Nombre de factures"
+          value={invoicesLoading ? '—' : String(list.length)}
+          icon={FileText}
+          accent="blue"
+        />
+      </DashboardSection>
 
       {invoicesError && (
         <div className="rounded-2xl bg-red-50 p-4 text-sm text-red-800 ring-1 ring-red-100">

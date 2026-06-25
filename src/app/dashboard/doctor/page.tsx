@@ -27,7 +27,7 @@ import {
 import { APPOINTMENT_STATUS_LABEL } from '@/lib/appointment-status'
 import { cn } from '@/lib/utils'
 import { DoctorAvailabilityCard } from '@/components/doctor/DoctorAvailabilityCard'
-import { DashboardHero } from '@/components/ui/dashboard-hero'
+import { ClinicalHero } from '@/components/ui/clinical-hero'
 import { MetricCard } from '@/components/ui/metric-card'
 import { EmptyState } from '@/components/ui/empty-state'
 
@@ -247,11 +247,11 @@ export default function DoctorDashboard() {
 
   return (
     <div className="animate-fade-in pb-12">
-      <DashboardHero
+      <ClinicalHero
         icon={Stethoscope}
         eyebrow={format(now, 'EEEE d MMMM yyyy', { locale: fr })}
         title={`${greeting}${doctorName ? `, ${doctorName}` : ''}`}
-        description="Vue opérationnelle — file d'attente et planning du jour."
+        description="Consultations du jour, file d'attente et accès rapides."
       />
 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,7fr)_minmax(0,3fr)]">
@@ -265,25 +265,23 @@ export default function DoctorDashboard() {
 
           {/* Current Consultation Banner */}
           {inProgressAppt && (
-            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-violet-500 to-indigo-600 p-5 text-white shadow-lg">
-              <div className="absolute -right-6 -top-6 h-24 w-24 rounded-full bg-white/10" />
-              <div className="absolute -bottom-4 -right-16 h-32 w-32 rounded-full bg-white/5" />
+            <div className="relative overflow-hidden rounded-2xl border border-[#BFDBFE] bg-[#EFF6FF] p-5 shadow-sm">
               <div className="relative flex items-center justify-between gap-4">
                 <div className="min-w-0">
-                  <p className="text-xs font-medium uppercase tracking-widest text-white/70">
+                  <p className="text-xs font-semibold uppercase tracking-widest text-[#2563EB]">
                     En consultation
                   </p>
-                  <p className="mt-1 truncate text-xl font-semibold">
+                  <p className="mt-1 truncate text-xl font-semibold text-[#172033]">
                     {inProgressAppt.patient.prenom} {inProgressAppt.patient.nom}
                   </p>
-                  <p className="mt-0.5 text-sm text-white/80">
+                  <p className="mt-0.5 text-sm text-[#64748B]">
                     {format(new Date(inProgressAppt.date_heure), 'HH:mm', { locale: fr })} — {inProgressAppt.motif}
                   </p>
                 </div>
                 <div className="flex shrink-0 gap-2">
                   <Link
                     href={`/dashboard/patients/${inProgressAppt.patient_id}`}
-                    className="rounded-xl bg-white/20 px-4 py-2 text-sm font-medium backdrop-blur-sm transition-colors hover:bg-white/30"
+                    className="rounded-xl border border-[#E2E8F0] bg-white px-4 py-2 text-sm font-medium text-[#172033] transition-colors hover:bg-[#F8FAFC]"
                     tabIndex={0}
                     aria-label={`Voir dossier de ${inProgressAppt.patient.prenom} ${inProgressAppt.patient.nom}`}
                   >
@@ -293,7 +291,7 @@ export default function DoctorDashboard() {
                     type="button"
                     onClick={() => handleCloseConsultation(inProgressAppt.id)}
                     disabled={closingId === inProgressAppt.id}
-                    className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-violet-700 transition-colors hover:bg-violet-50 disabled:opacity-50"
+                    className="rounded-xl bg-[#2563EB] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#1D4ED8] disabled:opacity-50"
                     aria-label="Clôturer cette consultation"
                   >
                     {closingId === inProgressAppt.id ? 'Clôture…' : 'Clôturer'}
@@ -672,14 +670,14 @@ export default function DoctorDashboard() {
           )}
 
           {/* Current Time Card */}
-          <div className="rounded-2xl border-0 bg-slate-900 p-6 text-white shadow-sm">
-            <p className="text-xs font-medium uppercase tracking-widest text-slate-400">
+          <div className="rounded-2xl border border-[#E2E8F0] bg-white p-6 shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-widest text-[#64748B]">
               Heure actuelle
             </p>
-            <p className="mt-2 text-4xl font-light tabular-nums tracking-tight text-white">
+            <p className="mt-2 text-4xl font-light tabular-nums tracking-tight text-[#0F3A6D]">
               {format(now, 'HH:mm')}
             </p>
-            <p className="mt-1 text-sm text-slate-400 capitalize">
+            <p className="mt-1 text-sm text-[#64748B] capitalize">
               {format(now, 'EEEE d MMMM', { locale: fr })}
             </p>
           </div>

@@ -128,7 +128,7 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
           <img
             src={cabinet.logoUrl}
             alt=""
-            className="mb-3 h-9 w-auto max-w-[180px] object-contain object-left brightness-0 invert"
+            className="mb-3 h-9 w-auto max-w-[180px] object-contain object-left"
           />
         ) : (
           <div className="clinical-sidebar-brand mb-1">
@@ -268,12 +268,12 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
         ) : null}
       </nav>
 
-      <div className="mt-auto flex w-full shrink-0 flex-col gap-4 border-t border-white/10 pt-5">
+      <div className="mt-auto flex w-full shrink-0 flex-col gap-4 border-t border-[#E2E8F0] pt-5">
         <div className="flex items-center justify-between px-1">
-          <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-[#94A3B8]">
             Affichage
           </span>
-          <ThemeToggle className="h-9 w-9 shrink-0 border-white/10 bg-white/5 text-slate-300 shadow-none hover:bg-white/10" />
+          <ThemeToggle className="h-9 w-9 shrink-0 border-[#E2E8F0] bg-[#F8FAFC] text-[#64748B] shadow-none hover:bg-[#EFF6FF]" />
         </div>
         {isDoctor && me?.id && <AssistantStatusMini doctorId={me.id} />}
 
@@ -290,8 +290,8 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
                 {initial}
               </div>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold text-slate-100">{me?.nom ?? '…'}</p>
-                <p className="truncate text-xs text-slate-400">{roleLabel(role)}</p>
+                <p className="truncate text-sm font-semibold text-[#172033]">{me?.nom ?? '…'}</p>
+                <p className="truncate text-xs text-[#64748B]">{roleLabel(role)}</p>
               </div>
             </div>
 
@@ -300,7 +300,7 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
                 Ma disponibilité
               </p>
               <Select value={status} onValueChange={(v) => patchMyStatus(v as UserStatusType)}>
-                <SelectTrigger className="h-10 w-full border-white/10 bg-white/5 text-left text-sm text-slate-200 shadow-none">
+                <SelectTrigger className="h-10 w-full border-[#E2E8F0] bg-[#F8FAFC] text-left text-sm text-[#172033] shadow-none">
                   <SelectValue placeholder="Statut" />
                 </SelectTrigger>
                 <SelectContent>

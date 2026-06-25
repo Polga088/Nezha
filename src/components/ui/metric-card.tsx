@@ -3,47 +3,38 @@ import { TrendingDown, TrendingUp, type LucideIcon } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 
-type Accent = 'blue' | 'emerald' | 'amber' | 'violet' | 'rose' | 'slate';
+type Accent = 'blue' | 'emerald' | 'amber' | 'cyan' | 'rose' | 'slate';
 
-const ACCENT: Record<
-  Accent,
-  { card: string; icon: string; value: string; bar: string }
-> = {
+const ACCENT: Record<Accent, { icon: string; value: string; bar: string }> = {
   blue: {
-    card: 'from-blue-50/80 to-white',
-    icon: 'bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-medical-blue-sm',
-    value: 'text-blue-600',
-    bar: 'bg-gradient-to-r from-blue-500 to-blue-400',
+    icon: 'bg-[#EFF6FF] text-[#2563EB]',
+    value: 'text-[#2563EB]',
+    bar: 'bg-[#2563EB]',
   },
   emerald: {
-    card: 'from-emerald-50/80 to-white',
-    icon: 'bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-medical-blue-sm',
-    value: 'text-emerald-600',
-    bar: 'bg-gradient-to-r from-emerald-500 to-emerald-400',
+    icon: 'bg-[#ECFDF5] text-[#10B981]',
+    value: 'text-[#10B981]',
+    bar: 'bg-[#10B981]',
   },
   amber: {
-    card: 'from-amber-50/80 to-white',
-    icon: 'bg-gradient-to-br from-amber-500 to-orange-500 text-white shadow-medical-blue-sm',
-    value: 'text-amber-600',
-    bar: 'bg-gradient-to-r from-amber-500 to-orange-400',
+    icon: 'bg-[#FFFBEB] text-[#F59E0B]',
+    value: 'text-[#F59E0B]',
+    bar: 'bg-[#F59E0B]',
   },
-  violet: {
-    card: 'from-violet-50/80 to-white',
-    icon: 'bg-gradient-to-br from-violet-500 to-indigo-600 text-white shadow-medical-blue-sm',
-    value: 'text-violet-600',
-    bar: 'bg-gradient-to-r from-violet-500 to-indigo-400',
+  cyan: {
+    icon: 'bg-[#ECFEFF] text-[#06B6D4]',
+    value: 'text-[#06B6D4]',
+    bar: 'bg-[#06B6D4]',
   },
   rose: {
-    card: 'from-rose-50/80 to-white',
-    icon: 'bg-gradient-to-br from-rose-500 to-red-500 text-white shadow-medical-blue-sm',
-    value: 'text-rose-600',
-    bar: 'bg-gradient-to-r from-rose-500 to-red-400',
+    icon: 'bg-[#FEF2F2] text-[#EF4444]',
+    value: 'text-[#EF4444]',
+    bar: 'bg-[#EF4444]',
   },
   slate: {
-    card: 'from-slate-50/80 to-white',
-    icon: 'bg-gradient-to-br from-slate-500 to-slate-600 text-white',
-    value: 'text-slate-700',
-    bar: 'bg-gradient-to-r from-slate-400 to-slate-300',
+    icon: 'bg-[#F1F5F9] text-[#64748B]',
+    value: 'text-[#172033]',
+    bar: 'bg-[#94A3B8]',
   },
 };
 
@@ -73,45 +64,43 @@ export function MetricCard({
   return (
     <div
       className={cn(
-        'group relative overflow-hidden rounded-3xl bg-gradient-to-br p-6 shadow-medical ring-1 ring-slate-900/[0.05] transition-all duration-300 hover:-translate-y-1 hover:shadow-medical-lg',
-        s.card,
+        'relative overflow-hidden rounded-2xl border border-[#E2E8F0] bg-white p-6 shadow-[0_2px_12px_-2px_rgba(23,32,51,0.06)] transition-shadow hover:shadow-[0_8px_24px_-8px_rgba(23,32,51,0.1)]',
         className
       )}
       {...props}
     >
       <div className="flex items-start justify-between gap-3">
         {Icon ? (
-          <span className={cn('inline-flex h-12 w-12 items-center justify-center rounded-2xl', s.icon)}>
+          <span className={cn('inline-flex h-11 w-11 items-center justify-center rounded-xl', s.icon)}>
             <Icon className="h-5 w-5" strokeWidth={2} aria-hidden />
           </span>
         ) : (
           <span />
         )}
-        <p className="text-right text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">
+        <p className="text-right text-[10px] font-bold uppercase tracking-[0.1em] text-[#64748B]">
           {label}
         </p>
       </div>
 
-      <div className="mt-5 flex items-end gap-2">
-        <span className={cn('text-5xl font-bold tabular-nums tracking-tight', s.value)}>
-          {value}
+      <p className={cn('mt-4 text-4xl font-bold tabular-nums tracking-tight sm:text-5xl', s.value)}>
+        {value}
+      </p>
+
+      {hasTrend ? (
+        <span
+          className={cn(
+            'mt-2 inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-xs font-semibold',
+            up ? 'bg-[#ECFDF5] text-[#10B981]' : 'bg-[#FEF2F2] text-[#EF4444]'
+          )}
+        >
+          {up ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+          {Math.abs(trend as number)}%
         </span>
-        {hasTrend ? (
-          <span
-            className={cn(
-              'mb-2 inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-xs font-bold',
-              up ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'
-            )}
-          >
-            {up ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-            {Math.abs(trend as number)}%
-          </span>
-        ) : null}
-      </div>
+      ) : null}
 
-      {hint ? <p className="mt-2 text-xs text-slate-400">{hint}</p> : null}
+      {hint ? <p className="mt-2 text-xs text-[#64748B]">{hint}</p> : null}
 
-      <div className={cn('absolute bottom-0 left-0 right-0 h-1', s.bar)} />
+      <div className={cn('absolute bottom-0 left-0 right-0 h-1 opacity-80', s.bar)} />
     </div>
   );
 }

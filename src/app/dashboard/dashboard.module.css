@@ -1,33 +1,36 @@
+/* Modern Clinical OS — sidebar claire */
+
 .sidebar {
   width: 100%;
   height: 100%;
-  padding: 20px 16px;
+  padding: 20px 14px;
   display: flex;
   flex-direction: column;
   min-height: 0;
   position: relative;
-  background: linear-gradient(180deg, #0f172a 0%, #1e293b 55%, #0f2744 100%);
-  color: #e2e8f0;
+  background: #ffffff;
+  color: #172033;
+  border-right: 1px solid #e2e8f0;
 }
 
 .logo {
-  font-size: 1.125rem;
+  font-size: 1.05rem;
   font-weight: 700;
   letter-spacing: -0.02em;
-  color: #f8fafc;
-  margin-bottom: 4px;
-  padding-left: 8px;
+  color: #172033;
+  margin-bottom: 2px;
+  padding-left: 10px;
   line-height: 1.3;
 }
 
 .logoSub {
-  font-size: 0.6875rem;
-  font-weight: 500;
-  letter-spacing: 0.06em;
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: #64748b;
-  padding-left: 8px;
-  margin-bottom: 20px;
+  padding-left: 10px;
+  margin-bottom: 18px;
 }
 
 .nav {
@@ -43,50 +46,49 @@
 }
 
 .navSection {
-  margin-top: 16px;
-  padding-top: 16px;
-  border-top: 1px solid rgba(148, 163, 184, 0.12);
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid #e2e8f0;
 }
 
 .navSectionLabel {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 0 12px 8px;
+  padding: 0 10px 6px;
   font-size: 0.625rem;
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: #64748b;
+  color: #94a3b8;
 }
 
 .navItem {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 11px;
   padding: 10px 12px;
-  border-radius: 12px;
-  color: #94a3b8;
+  border-radius: 10px;
+  color: #64748b;
   font-size: 0.875rem;
   font-weight: 500;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: all 0.18s ease;
 }
 
 .navItem:hover {
-  background: rgba(255, 255, 255, 0.06);
-  color: #f1f5f9;
+  background: #eef4fa;
+  color: #2563eb;
 }
 
 .navItem:active {
-  transform: scale(0.98);
+  transform: scale(0.99);
 }
 
 .active {
-  background: linear-gradient(135deg, rgba(37, 99, 235, 0.25) 0%, rgba(59, 130, 246, 0.12) 100%);
-  color: #ffffff;
+  background: #eff6ff;
+  color: #2563eb;
   font-weight: 600;
-  box-shadow: 0 2px 12px -2px rgba(37, 99, 235, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .active::before {
@@ -95,36 +97,35 @@
   left: 0;
   top: 50%;
   transform: translateY(-50%);
-  height: 20px;
+  height: 18px;
   width: 3px;
   border-radius: 0 4px 4px 0;
-  background: linear-gradient(180deg, #60a5fa, #2563eb);
-  box-shadow: 0 0 8px rgba(59, 130, 246, 0.6);
+  background: #2563eb;
 }
 
 .navSubItem {
-  padding-left: 16px;
+  padding-left: 14px;
   font-size: 0.8125rem;
 }
 
 .logoutBtn {
   margin-top: auto;
-  padding: 11px 16px;
-  border-radius: 12px;
-  border: 1px solid rgba(148, 163, 184, 0.15);
-  background: rgba(255, 255, 255, 0.04);
-  color: #cbd5e1;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #64748b;
   font-size: 0.875rem;
   font-weight: 600;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  transition: all 0.2s ease;
+  transition: all 0.18s ease;
 }
 
 .logoutBtn:hover {
-  background: rgba(239, 68, 68, 0.12);
-  border-color: rgba(239, 68, 68, 0.25);
-  color: #fca5a5;
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #ef4444;
 }

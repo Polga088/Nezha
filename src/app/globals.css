@@ -4,25 +4,25 @@
 
 @layer base {
   :root {
-    /* Clinical Architect — tonal layering */
-    --clinical-surface-rgb: 245 247 250;
-    --clinical-container-low-rgb: 237 240 245;
-    --clinical-container-high-rgb: 228 232 240;
+    /* Modern Clinical OS */
+    --clinical-surface-rgb: 246 248 251;
+    --clinical-container-low-rgb: 238 244 250;
+    --clinical-container-high-rgb: 241 245 249;
     --clinical-container-lowest-rgb: 255 255 255;
-    --clinical-on-surface-rgb: 15 23 42;
-    --clinical-on-surface-variant-rgb: 71 85 105;
-    --clinical-outline-variant-rgb: 195 198 215;
-    --clinical-primary-deep: 0 74 198;
+    --clinical-on-surface-rgb: 23 32 51;
+    --clinical-on-surface-variant-rgb: 100 116 139;
+    --clinical-outline-variant-rgb: 226 232 240;
+    --clinical-primary-deep: 15 58 109;
     --clinical-primary-bright: 37 99 235;
 
-    --bg-primary: #f5f7fa;
+    --bg-primary: #f6f8fb;
     --bg-secondary: #ffffff;
     --border-color: #e2e8f0;
-    --text-primary: #0f172a;
+    --text-primary: #172033;
     --text-secondary: #64748b;
     --accent-primary: #2563eb;
-    --accent-gradient: linear-gradient(135deg, #004ac6 0%, #2563eb 50%, #3b82f6 100%);
-    --bg-glass: rgba(255, 255, 255, 0.82);
+    --accent-gradient: linear-gradient(135deg, #2563eb 0%, #06b6d4 100%);
+    --bg-glass: rgba(255, 255, 255, 0.9);
 
     --background: 216 33% 97%;
     --foreground: 222 47% 11%;

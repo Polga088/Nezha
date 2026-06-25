@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { Home } from 'lucide-react';
 
 import { DailyOverview } from '@/components/dashboard/DailyOverview';
-import { DashboardHero } from '@/components/ui/dashboard-hero';
+import { ClinicalHero } from '@/components/ui/clinical-hero';
 
 function DashboardHomeContent() {
   const searchParams = useSearchParams();
@@ -13,7 +13,7 @@ function DashboardHomeContent() {
 
   return (
     <div className="animate-fade-in pb-8">
-      <DashboardHero
+      <ClinicalHero
         icon={Home}
         eyebrow="Tableau de bord"
         title="Accueil"
