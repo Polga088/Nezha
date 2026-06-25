@@ -20,6 +20,9 @@ import {
 } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { DataTableShell } from '@/components/ui/data-table-shell';
+import { EmptyState } from '@/components/ui/empty-state';
+import { DashboardHero } from '@/components/ui/dashboard-hero';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -190,152 +193,111 @@ export default function PatientsPage() {
   };
 
   return (
-    <div className="animate-fade-in space-y-6 max-w-7xl">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-semibold text-slate-900 tracking-tight">
-          Dossiers Médicaux
-        </h1>
-      </div>
+    <div className="animate-fade-in space-y-6">
+      <DashboardHero
+        icon={User}
+        eyebrow="Patients"
+        title="Dossiers médicaux"
+        description="Gérez l'ensemble de votre base de dossiers patients."
+        actions={
+          <Button
+            type="button"
+            size="lg"
+            className="gap-2 bg-white text-blue-700 hover:bg-blue-50"
+            onClick={() => setIsModalOpen(true)}
+          >
+            <Plus size={18} /> Nouveau patient
+          </Button>
+        }
+      />
 
-      <div className="bg-white border border-slate-200/60 shadow-premium rounded-xl flex flex-col overflow-hidden">
-        <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/80">
-          <h2 className="text-lg font-bold text-slate-800">Liste des patients</h2>
-          <p className="text-sm text-slate-500">
-            Gérez l&apos;ensemble de votre base de dossiers médicaux.
-          </p>
-        </div>
-
-        <div className="p-4 border-b border-slate-100 flex flex-col lg:flex-row justify-between items-stretch lg:items-center gap-4 bg-white">
-          <div className="relative w-full max-w-md flex items-center">
-            <Search className="absolute left-3 text-slate-400" size={18} />
-            <Input
-              placeholder="Nom, prénom, téléphone, CIN…"
-              className="pl-10"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              aria-label="Recherche patient"
-              autoComplete="off"
+      <DataTableShell
+        title="Liste des patients"
+        description="Recherchez, importez ou exportez vos dossiers."
+        icon={User}
+        toolbar={
+          <>
+            <div className="relative w-full max-w-sm flex items-center">
+              <Search className="absolute left-3.5 text-slate-400" size={17} />
+              <Input
+                placeholder="Nom, prénom, téléphone, CIN…"
+                className="pl-10"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                aria-label="Recherche patient"
+                autoComplete="off"
+              />
+            </div>
+            <input
+              ref={importInputRef}
+              type="file"
+              accept=".csv,text/csv"
+              className="sr-only"
+              aria-hidden
+              tabIndex={-1}
+              onChange={handleImportCsv}
             />
-          </div>
-          <input
-            ref={importInputRef}
-            type="file"
-            accept=".csv,text/csv"
-            className="sr-only"
-            aria-hidden
-            tabIndex={-1}
-            onChange={handleImportCsv}
-          />
-          <div className="flex flex-wrap items-center gap-2 justify-end">
-            <Button
-              type="button"
-              variant="outline"
-              className="gap-2 border-slate-200 bg-white shadow-sm hover:bg-slate-50"
-              onClick={handleExportCsv}
-            >
-              <Download size={18} aria-hidden />
-              Export CSV
+            <Button type="button" variant="outline" className="gap-2" onClick={handleExportCsv}>
+              <Download size={16} aria-hidden />
+              Export
+            </Button>
+            <Button type="button" variant="outline" className="gap-2" onClick={handleDownloadImportTemplate}>
+              <FileDown size={16} aria-hidden />
+              Modèle CSV
             </Button>
             <Button
               type="button"
               variant="outline"
-              className="gap-2 border-slate-200 bg-white shadow-sm hover:bg-slate-50"
-              onClick={handleDownloadImportTemplate}
-            >
-              <FileDown size={18} aria-hidden />
-              Télécharger le modèle CSV
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              className="gap-2 border-slate-200 bg-white shadow-sm hover:bg-slate-50"
+              className="gap-2"
               disabled={importing}
               onClick={() => importInputRef.current?.click()}
             >
-              <Upload size={18} aria-hidden />
-              {importing ? 'Import…' : 'Importer CSV'}
+              <Upload size={16} aria-hidden />
+              {importing ? 'Import…' : 'Importer'}
             </Button>
-            <Button
-              type="button"
-              className="gap-2 bg-gradient-to-b from-blue-500 to-blue-600 hover:brightness-95 hover:shadow-md text-white border border-blue-600/20 transition-all shadow-medical"
-              onClick={() => setIsModalOpen(true)}
-            >
-              <Plus size={18} /> Nouveau Patient
-            </Button>
-          </div>
-          <CreatePatientModal
-            open={isModalOpen}
-            onOpenChange={setIsModalOpen}
-            onSuccess={() => {
-              fetchPatients();
-              router.refresh();
-            }}
-          />
-          <EditPatientModal
-            open={editOpen}
-            onOpenChange={(open) => {
-              setEditOpen(open);
-              if (!open) setEditPatient(null);
-            }}
-            patient={editPatient}
-            onSuccess={() => {
-              fetchPatients();
-              router.refresh();
-            }}
-          />
-        </div>
-
+          </>
+        }
+      >
         <Table>
-          <TableHeader className="bg-slate-50/50">
-            <TableRow>
-              <TableHead className="w-[300px] text-xs font-bold uppercase tracking-wider text-slate-500">
-                Patient
-              </TableHead>
-              <TableHead className="text-xs font-bold uppercase tracking-wider text-slate-500 hidden sm:table-cell">
-                Téléphone
-              </TableHead>
-              <TableHead className="text-xs font-bold uppercase tracking-wider text-slate-500 hidden md:table-cell">
-                Date de Naissance
-              </TableHead>
-              <TableHead className="text-right text-xs font-bold uppercase tracking-wider text-slate-500">
-                Actions
-              </TableHead>
+          <TableHeader>
+            <TableRow className="hover:bg-transparent">
+              <TableHead className="w-[300px]">Patient</TableHead>
+              <TableHead className="hidden sm:table-cell">Téléphone</TableHead>
+              <TableHead className="hidden md:table-cell">Date de naissance</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={4} className="text-center h-24">
+                <TableCell colSpan={4} className="text-center h-24 text-slate-400">
                   Chargement…
                 </TableCell>
               </TableRow>
             ) : patients.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={4}>
-                  <div className="flex flex-col items-center justify-center py-16 text-center gap-4">
-                    <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-300">
-                      <User size={32} strokeWidth={1.5} />
-                    </div>
-                    <div>
-                      <p className="font-semibold text-slate-700 text-base">
-                        Aucun patient enregistré
-                      </p>
-                      <p className="text-sm text-slate-400 mt-1">
-                        Créez votre premier dossier médical en cliquant sur &quot;Nouveau Patient&quot;.
-                      </p>
-                    </div>
-                  </div>
+              <TableRow className="hover:bg-transparent">
+                <TableCell colSpan={4} className="p-0">
+                  <EmptyState
+                    icon={User}
+                    title="Aucun patient enregistré"
+                    description='Créez votre premier dossier médical en cliquant sur "Nouveau patient".'
+                    action={
+                      <Button onClick={() => setIsModalOpen(true)} className="gap-2">
+                        <Plus size={16} /> Nouveau patient
+                      </Button>
+                    }
+                  />
                 </TableCell>
               </TableRow>
             ) : (
               patients.map((p) => (
-                <TableRow key={p.id} className="hover:bg-slate-50/50 cursor-pointer">
+                <TableRow key={p.id} className="cursor-pointer">
                   <TableCell
                     className="font-medium"
                     onClick={() => router.push(`/dashboard/patients/${p.id}`)}
                   >
                     <div className="flex items-center gap-3 min-w-0">
-                      <Avatar className="h-9 w-9 bg-blue-50 text-blue-600 shrink-0">
+                      <Avatar className="h-10 w-10 bg-gradient-to-br from-blue-50 to-indigo-50 text-blue-600 shrink-0 ring-1 ring-blue-100">
                         <AvatarFallback className="font-semibold text-xs border border-blue-100">
                           {p.prenom[0]}
                           {p.nom[0]}
@@ -404,7 +366,28 @@ export default function PatientsPage() {
             )}
           </TableBody>
         </Table>
-      </div>
+      </DataTableShell>
+
+      <CreatePatientModal
+        open={isModalOpen}
+        onOpenChange={setIsModalOpen}
+        onSuccess={() => {
+          fetchPatients();
+          router.refresh();
+        }}
+      />
+      <EditPatientModal
+        open={editOpen}
+        onOpenChange={(open) => {
+          setEditOpen(open);
+          if (!open) setEditPatient(null);
+        }}
+        patient={editPatient}
+        onSuccess={() => {
+          fetchPatients();
+          router.refresh();
+        }}
+      />
     </div>
   );
 }

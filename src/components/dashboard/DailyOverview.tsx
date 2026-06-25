@@ -18,7 +18,10 @@ import {
 import { APPOINTMENT_STATUS_LABEL } from '@/lib/appointment-status';
 import { EncaisserPaymentDialog } from '@/components/dashboard/EncaisserPaymentDialog';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { EmptyState } from '@/components/ui/empty-state';
+import { MetricCard } from '@/components/ui/metric-card';
+import { SectionCard } from '@/components/ui/section-card';
+import { StatusBadge } from '@/components/ui/status-badge';
 import { currencyAmountSuffix } from '@/lib/currency-amount-suffix';
 import { cn } from '@/lib/utils';
 
@@ -46,10 +49,8 @@ type CabinetSettings = {
   acceptedPaymentMethods?: string[];
 };
 
-const cardShellDoctor =
-  'rounded-2xl border-0 bg-white shadow-sm transition-shadow hover:shadow-md';
-const cardShellDefault =
-  'rounded-2xl border border-sky-100/80 bg-white shadow-sm transition-shadow hover:shadow-md';
+const cardShellDoctor = 'border-0 shadow-medical';
+const cardShellDefault = 'border-0 shadow-medical';
 
 export type DailyOverviewVariant = 'default' | 'doctor';
 
@@ -202,26 +203,12 @@ export function DailyOverview({
     return APPOINTMENT_STATUS_LABEL[s] ?? s;
   };
 
-  const statTile = (label: string, value: number | string, accent: 'sky' | 'amber' | 'emerald') => {
-    const accentMap = {
-      sky: 'border-sky-100/90 bg-sky-50/40 text-sky-800',
-      amber: 'border-amber-100/90 bg-amber-50/35 text-amber-900',
-      emerald: 'border-emerald-100/90 bg-emerald-50/35 text-emerald-900',
-    };
-    return (
-      <div
-        className={cn(
-          'rounded-2xl border px-4 py-3 shadow-sm',
-          accentMap[accent]
-        )}
-      >
-        <p className="text-[10px] font-semibold uppercase tracking-wide opacity-90">{label}</p>
-        <p className="mt-1 text-xl font-bold tabular-nums text-slate-900 md:text-2xl">{value}</p>
-      </div>
-    );
-  };
-
   const cardShell = isDoctorView ? cardShellDoctor : cardShellDefault;
+
+  const statTone = (accent: 'sky' | 'amber' | 'emerald'): 'blue' | 'amber' | 'emerald' => {
+    if (accent === 'sky') return 'blue';
+    return accent;
+  };
 
   return (
     <section
@@ -229,48 +216,38 @@ export function DailyOverview({
       aria-label="Vue opérationnelle du jour"
     >
       {!isDoctorView && (
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-          {statTile(
-            'RDV du jour',
-            apptsLoading ? '—' : sortedToday.length,
-            'sky'
-          )}
-          {statTile(
-            'En file',
-            queueLoading ? '—' : queue.length,
-            'amber'
-          )}
-          {statTile(
-            'À encaisser',
-            encaissementLoading ? '—' : finishedList.length,
-            'sky'
-          )}
-          {statTile(
-            'Réglés',
-            encaissementLoading ? '—' : paidList.length,
-            'emerald'
-          )}
+        <div className="bento-grid-4">
+          <MetricCard
+            label="RDV du jour"
+            value={apptsLoading ? '—' : sortedToday.length}
+            accent={statTone('sky')}
+          />
+          <MetricCard
+            label="En file"
+            value={queueLoading ? '—' : queue.length}
+            accent={statTone('amber')}
+          />
+          <MetricCard
+            label="À encaisser"
+            value={encaissementLoading ? '—' : finishedList.length}
+            accent="blue"
+          />
+          <MetricCard
+            label="Réglés"
+            value={encaissementLoading ? '—' : paidList.length}
+            accent="emerald"
+          />
         </div>
       )}
 
-      <Card className={cn('overflow-hidden', cardShell, !isDoctorView && 'border-sky-100/80')}>
-        <CardHeader
-          className={cn(
-            'space-y-1 px-5 py-4 sm:px-6',
-            isDoctorView ? 'border-0 bg-white pb-3 pt-5' : 'border-b border-sky-100/60 bg-sky-50/30'
-          )}
-        >
-          <CardTitle className="flex items-center gap-2 text-base font-semibold text-slate-800 md:text-lg">
-            <ListOrdered className="h-5 w-5 text-sky-600" aria-hidden />
-            File d&apos;attente
-          </CardTitle>
-          <CardDescription
-            className={cn('text-sm', isDoctorView ? 'font-light text-slate-500' : 'text-slate-600')}
-          >
-            Priorité du jour — même ordre qu&apos;à l&apos;accueil
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4 bg-white px-5 py-6 sm:px-6">
+      <SectionCard
+        title="File d'attente"
+        description="Priorité du jour — même ordre qu'à l'accueil"
+        icon={ListOrdered}
+        flush
+        className={cn(cardShell, !isDoctorView && cardShellDefault)}
+      >
+        <div className="space-y-4 px-5 py-6 sm:px-6">
           {queueLoading && (
             <p className="py-8 text-center text-sm text-slate-500">Chargement…</p>
           )}
@@ -281,9 +258,11 @@ export function DailyOverview({
             <p className="py-4 text-center text-sm text-slate-500">Chargement encaissement…</p>
           )}
           {fileEtEncaissementVide && (
-            <p className="py-8 text-center text-sm text-slate-500">
-              Aucune entrée file d&apos;attente ni encaissement pour le moment.
-            </p>
+            <EmptyState
+              icon={ListOrdered}
+              title="Aucune activité"
+              description="Aucune entrée file d'attente ni encaissement pour le moment."
+            />
           )}
           {!isDoctorView &&
             !queueLoading &&
@@ -380,36 +359,33 @@ export function DailyOverview({
                       {format(new Date(rdv.date_heure), 'HH:mm', { locale: fr })} — {rdv.motif}
                     </span>
                   </Link>
-                  <span className="shrink-0 rounded-full bg-emerald-100/90 px-2.5 py-0.5 text-xs font-semibold text-emerald-800">
-                    {APPOINTMENT_STATUS_LABEL['PAID']}
+                  <span className="shrink-0">
+                    <StatusBadge tone="success" label={APPOINTMENT_STATUS_LABEL['PAID']} />
                   </span>
                 </div>
               ))}
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </SectionCard>
 
-      <Card className={cn(isDoctorView ? 'border-0' : 'border-slate-100/90', cardShell)}>
-        <CardHeader className="space-y-1 px-5 pb-3 pt-5 sm:px-6 sm:pt-6">
-          <CardTitle className="flex items-center gap-2 text-base font-semibold text-slate-800 md:text-lg">
-            <Stethoscope className="h-5 w-5 text-sky-600" aria-hidden />
-            Rendez-vous du jour
-          </CardTitle>
-          <CardDescription
-            className={cn('text-sm', isDoctorView ? 'font-light text-slate-500' : 'text-slate-600')}
-          >
-            Ordre chronologique — accès au dossier patient
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3 px-5 pb-6 sm:px-6">
+      <SectionCard
+        title="Rendez-vous du jour"
+        description="Ordre chronologique — accès au dossier patient"
+        icon={Stethoscope}
+        flush
+        className={cardShell}
+      >
+        <div className="space-y-3 px-5 pb-6 sm:px-6">
           {apptsLoading && (
             <p className="py-8 text-center text-sm text-slate-500">Chargement…</p>
           )}
           {!apptsLoading && sortedToday.length === 0 && (
-            <p className="py-8 text-center text-sm text-slate-500">
-              Aucun rendez-vous aujourd&apos;hui.
-            </p>
+            <EmptyState
+              icon={Stethoscope}
+              title="Aucun rendez-vous"
+              description="Aucun rendez-vous prévu pour aujourd'hui."
+            />
           )}
           {sortedToday.map((rdv) => (
             <Link
@@ -425,20 +401,16 @@ export function DailyOverview({
                   {format(new Date(rdv.date_heure), 'HH:mm', { locale: fr })} — {rdv.motif}
                 </span>
               </div>
-              <span
-                className={cn(
-                  'shrink-0 rounded-full px-3 py-1 text-xs font-semibold',
-                  rdv.statut === 'WAITING' && rdv.arrivalTime
-                    ? 'bg-amber-100/90 text-amber-900'
-                    : 'bg-sky-50 text-sky-900'
-                )}
-              >
-                {statusBadgeLabel(rdv)}
+              <span className="shrink-0">
+                <StatusBadge
+                  tone={rdv.statut === 'WAITING' && rdv.arrivalTime ? 'warning' : 'info'}
+                  label={statusBadgeLabel(rdv)}
+                />
               </span>
             </Link>
           ))}
-        </CardContent>
-      </Card>
+        </div>
+      </SectionCard>
 
       {!isDoctorView && (
         <EncaisserPaymentDialog

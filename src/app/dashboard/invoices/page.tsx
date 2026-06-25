@@ -13,7 +13,6 @@ import {
   FileText,
   Search,
   Trash2,
-  XCircle,
 } from 'lucide-react';
 
 import {
@@ -25,11 +24,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { InvoiceModal } from '@/components/invoices/InvoiceModal';
 import { Input } from '@/components/ui/input';
+import { DataTableShell } from '@/components/ui/data-table-shell';
+import { DashboardHero } from '@/components/ui/dashboard-hero';
+import { EmptyState } from '@/components/ui/empty-state';
+import { StatusBadge } from '@/components/ui/status-badge';
 import { useSettings } from '@/hooks/useSettings';
 import { currencyAmountSuffix } from '@/lib/currency-amount-suffix';
 import {
@@ -211,23 +212,11 @@ export default function InvoicesPage() {
   const renderStatusBadge = (status: InvoiceApiRow['statut']) => {
     switch (status) {
       case 'PAID':
-        return (
-          <Badge className="border-none bg-emerald-100 text-emerald-700 hover:bg-emerald-200">
-            <CheckCircle className="mr-1 h-3 w-3" /> Payé
-          </Badge>
-        );
+        return <StatusBadge tone="success" label="Payé" pulse />;
       case 'PENDING':
-        return (
-          <Badge className="border-none bg-orange-100 text-orange-700 hover:bg-orange-200">
-            En attente
-          </Badge>
-        );
+        return <StatusBadge tone="warning" label="En attente" />;
       case 'CANCELLED':
-        return (
-          <Badge className="border-none bg-red-100 text-red-700 hover:bg-red-200">
-            <XCircle className="mr-1 h-3 w-3" /> Annulé
-          </Badge>
-        );
+        return <StatusBadge tone="danger" label="Annulé" />;
     }
   };
 
@@ -243,62 +232,50 @@ export default function InvoicesPage() {
     : '';
 
   return (
-    <div className="animate-fade-in mx-auto max-w-7xl space-y-6 pb-10">
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="flex items-center gap-2 text-3xl font-semibold tracking-tight text-slate-900">
-          <CreditCard className="h-8 w-8 text-blue-600" /> Facturation & Paiements
-        </h1>
-      </div>
+    <div className="animate-fade-in space-y-6 pb-10">
+      <DashboardHero
+        icon={CreditCard}
+        eyebrow="Finance"
+        title="Facturation & Paiements"
+        description="Gérez la facturation et suivez les règlements de vos patients."
+        actions={
+          <Button size="lg" className="gap-2 bg-white text-blue-700 hover:bg-blue-50" onClick={() => setIsModalOpen(true)}>
+            + Créer une facture
+          </Button>
+        }
+      />
 
       {invoicesError && (
-        <Card className="rounded-2xl border-0 bg-red-50/50 p-4 text-sm text-red-800 shadow-sm ring-1 ring-red-100/80">
+        <div className="rounded-2xl bg-red-50 p-4 text-sm text-red-800 ring-1 ring-red-100">
           {invoicesError.message}
-        </Card>
+        </div>
       )}
 
-      <Card className="overflow-hidden rounded-2xl border-0 bg-white shadow-sm">
-        <div className="border-b border-slate-100/80 bg-white px-6 py-6">
-          <h2 className="text-lg font-bold text-slate-800">Factures émises</h2>
-          <p className="text-sm text-slate-500">
-            Gérez la facturation et suivez les règlements de vos patients.
-          </p>
-        </div>
-
-        <div className="flex flex-col items-center justify-between gap-4 border-b border-slate-100/80 bg-white px-6 py-5 sm:flex-row">
+      <DataTableShell
+        title="Factures émises"
+        description="Historique des factures et statuts de paiement."
+        icon={FileText}
+        toolbar={
           <div className="relative flex w-full max-w-sm items-center">
-            <Search className="absolute left-3 text-slate-400" size={18} />
+            <Search className="absolute left-3.5 text-slate-400" size={17} />
             <Input
-              placeholder="Rechercher une facture, un patient..."
-              className="pl-10 focus-visible:ring-blue-500"
+              placeholder="Rechercher une facture, un patient…"
+              className="pl-10"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
-
-          <InvoiceModal open={isModalOpen} onOpenChange={setIsModalOpen} patients={patients} />
-        </div>
-
+        }
+      >
         <Table>
-          <TableHeader className="bg-slate-50/50">
-            <TableRow>
-              <TableHead className="w-[150px] text-xs font-bold uppercase tracking-wider text-slate-500">
-                N° Facture
-              </TableHead>
-              <TableHead className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                Date
-              </TableHead>
-              <TableHead className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                Patient
-              </TableHead>
-              <TableHead className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                Montant
-              </TableHead>
-              <TableHead className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                Statut
-              </TableHead>
-              <TableHead className="text-right align-middle text-xs font-bold uppercase tracking-wider text-slate-500">
-                Actions
-              </TableHead>
+          <TableHeader>
+            <TableRow className="hover:bg-transparent">
+              <TableHead className="w-[150px]">N° Facture</TableHead>
+              <TableHead>Date</TableHead>
+              <TableHead>Patient</TableHead>
+              <TableHead>Montant</TableHead>
+              <TableHead>Statut</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -309,12 +286,13 @@ export default function InvoicesPage() {
                 </TableCell>
               </TableRow>
             ) : filteredInvoices.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={6}>
-                  <div className="flex flex-col items-center justify-center py-12 text-center text-slate-500">
-                    <FileText className="mb-3 h-12 w-12 text-slate-200" />
-                    <p className="font-medium text-slate-700">Aucune facture trouvée.</p>
-                  </div>
+              <TableRow className="hover:bg-transparent">
+                <TableCell colSpan={6} className="p-0">
+                  <EmptyState
+                    icon={FileText}
+                    title="Aucune facture trouvée"
+                    description="Créez une nouvelle facture ou modifiez votre recherche."
+                  />
                 </TableCell>
               </TableRow>
             ) : (
@@ -369,7 +347,9 @@ export default function InvoicesPage() {
             )}
           </TableBody>
         </Table>
-      </Card>
+      </DataTableShell>
+
+      <InvoiceModal open={isModalOpen} onOpenChange={setIsModalOpen} patients={patients} />
 
       <AlertDialog
         open={pendingDelete !== null}

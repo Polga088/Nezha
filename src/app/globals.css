@@ -4,101 +4,101 @@
 
 @layer base {
   :root {
-    /* The Clinical Architect — tonal layering (RGB channels for Tailwind /opacity) */
-    --clinical-surface-rgb: 249 249 249;
-    --clinical-container-low-rgb: 243 243 243;
-    /* Onglets / zones « ancrées » (surface-container-high) */
-    --clinical-container-high-rgb: 235 236 240;
+    /* Clinical Architect — tonal layering */
+    --clinical-surface-rgb: 245 247 250;
+    --clinical-container-low-rgb: 237 240 245;
+    --clinical-container-high-rgb: 228 232 240;
     --clinical-container-lowest-rgb: 255 255 255;
-    --clinical-on-surface-rgb: 26 28 28;
-    --clinical-on-surface-variant-rgb: 67 70 85;
+    --clinical-on-surface-rgb: 15 23 42;
+    --clinical-on-surface-variant-rgb: 71 85 105;
     --clinical-outline-variant-rgb: 195 198 215;
+    --clinical-primary-deep: 0 74 198;
+    --clinical-primary-bright: 37 99 235;
 
-    /* Dashboard layouts (dashboard.module.css, patients, etc.) */
-    --bg-primary: #f9f9f9;
+    --bg-primary: #f5f7fa;
     --bg-secondary: #ffffff;
     --border-color: #e2e8f0;
     --text-primary: #0f172a;
     --text-secondary: #64748b;
     --accent-primary: #2563eb;
-    --accent-gradient: linear-gradient(135deg, #2563eb 0%, #4f46e5 100%);
-    --bg-glass: rgba(255, 255, 255, 0.85);
+    --accent-gradient: linear-gradient(135deg, #004ac6 0%, #2563eb 50%, #3b82f6 100%);
+    --bg-glass: rgba(255, 255, 255, 0.82);
 
-    --background: 210 40% 98%;
-    --foreground: 215 28% 17%;
+    --background: 216 33% 97%;
+    --foreground: 222 47% 11%;
 
     --card: 0 0% 100%;
-    --card-foreground: 215 28% 17%;
+    --card-foreground: 222 47% 11%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 215 28% 17%;
+    --popover-foreground: 222 47% 11%;
 
-    --primary: 221.2 83.2% 53.3%;
+    --primary: 221 83% 53%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 40% 98%;
-    --secondary-foreground: 215 28% 17%;
+    --secondary: 216 33% 97%;
+    --secondary-foreground: 222 47% 11%;
 
-    --muted: 210 40% 98%;
-    --muted-foreground: 215.4 16.3% 36.9%;
+    --muted: 216 33% 97%;
+    --muted-foreground: 215 16% 47%;
 
-    --accent: 210 40% 98%;
-    --accent-foreground: 215 28% 17%;
+    --accent: 216 33% 97%;
+    --accent-foreground: 222 47% 11%;
 
-    --destructive: 0 84.2% 60.2%;
+    --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 210 40% 96.1%;
-    --input: 210 40% 96.1%;
-    --ring: 221.2 83.2% 53.3%;
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 221 83% 53%;
 
     --radius: 0.75rem;
   }
 
   .dark {
-    --clinical-surface-rgb: 20 20 22;
-    --clinical-container-low-rgb: 30 30 34;
-    --clinical-container-high-rgb: 44 44 48;
-    --clinical-container-lowest-rgb: 39 39 42;
-    --clinical-on-surface-rgb: 244 244 245;
-    --clinical-on-surface-variant-rgb: 161 161 170;
-    --clinical-outline-variant-rgb: 82 82 91;
+    --clinical-surface-rgb: 15 17 23;
+    --clinical-container-low-rgb: 22 25 32;
+    --clinical-container-high-rgb: 32 36 48;
+    --clinical-container-lowest-rgb: 28 32 42;
+    --clinical-on-surface-rgb: 241 245 249;
+    --clinical-on-surface-variant-rgb: 148 163 184;
+    --clinical-outline-variant-rgb: 71 85 105;
 
-    --bg-primary: #18181b;
-    --bg-secondary: #27272a;
-    --border-color: #3f3f46;
-    --text-primary: #fafafa;
-    --text-secondary: #a1a1aa;
+    --bg-primary: #0f1117;
+    --bg-secondary: #1c2030;
+    --border-color: #334155;
+    --text-primary: #f1f5f9;
+    --text-secondary: #94a3b8;
     --accent-primary: #60a5fa;
-    --accent-gradient: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%);
-    --bg-glass: rgba(39, 39, 42, 0.88);
+    --accent-gradient: linear-gradient(135deg, #1d4ed8 0%, #3b82f6 100%);
+    --bg-glass: rgba(28, 32, 48, 0.88);
 
-    --background: 240 10% 9%;
-    --foreground: 210 20% 96%;
+    --background: 222 47% 7%;
+    --foreground: 210 40% 96%;
 
-    --card: 240 10% 12%;
-    --card-foreground: 210 20% 96%;
+    --card: 222 40% 11%;
+    --card-foreground: 210 40% 96%;
 
-    --popover: 240 10% 11%;
-    --popover-foreground: 210 20% 96%;
+    --popover: 222 40% 10%;
+    --popover-foreground: 210 40% 96%;
 
     --primary: 217 91% 60%;
     --primary-foreground: 222 47% 11%;
 
-    --secondary: 240 6% 16%;
-    --secondary-foreground: 210 20% 96%;
+    --secondary: 222 30% 14%;
+    --secondary-foreground: 210 40% 96%;
 
-    --muted: 240 6% 18%;
-    --muted-foreground: 215 16% 72%;
+    --muted: 222 30% 16%;
+    --muted-foreground: 215 20% 65%;
 
-    --accent: 240 6% 18%;
-    --accent-foreground: 210 20% 96%;
+    --accent: 222 30% 16%;
+    --accent-foreground: 210 40% 96%;
 
     --destructive: 0 62% 50%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 240 6% 20%;
-    --input: 240 6% 20%;
+    --border: 222 30% 18%;
+    --input: 222 30% 18%;
     --ring: 217 91% 60%;
   }
 }
@@ -107,106 +107,214 @@
   * {
     @apply border-border;
   }
+
   body {
-    @apply bg-background text-foreground font-sans antialiased;
+    @apply bg-background font-sans text-foreground antialiased;
     background-color: hsl(var(--background)) !important;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
 
-  .dark body {
-    @apply antialiased;
+  h1, h2, h3, h4 {
+    @apply tracking-tight text-slate-900;
+    letter-spacing: -0.02em;
   }
 
-  /* Clinical Architect — focus ring cohérent et accessible sur tout le staff */
   :where(a, button, [role="button"], input, select, textarea):focus-visible {
     outline: none;
     box-shadow:
       0 0 0 2px hsl(var(--background)),
-      0 0 0 4px hsl(var(--ring) / 0.55);
-    border-radius: calc(var(--radius) - 4px);
+      0 0 0 4px hsl(var(--ring) / 0.5);
+    border-radius: calc(var(--radius) - 2px);
   }
 }
 
-/* Tonal scrollbars — discrètes, bleu-gris */
 @layer base {
   * {
     scrollbar-width: thin;
-    scrollbar-color: rgb(148 163 184 / 0.45) transparent;
+    scrollbar-color: rgb(148 163 184 / 0.4) transparent;
   }
   *::-webkit-scrollbar {
-    width: 9px;
-    height: 9px;
+    width: 8px;
+    height: 8px;
   }
   *::-webkit-scrollbar-track {
     background: transparent;
   }
   *::-webkit-scrollbar-thumb {
-    background-color: rgb(148 163 184 / 0.4);
+    background-color: rgb(148 163 184 / 0.35);
     border-radius: 9999px;
-    border: 2px solid transparent;
-    background-clip: content-box;
   }
   *::-webkit-scrollbar-thumb:hover {
-    background-color: rgb(100 116 139 / 0.55);
+    background-color: rgb(100 116 139 / 0.5);
   }
 }
 
+/* ── Clinical Design System ─────────────────────────────────────── */
+
 @layer components {
-  /* Surface "well" tonale — grande zone fonctionnelle (DESIGN.md §2) */
+  .clinical-shell {
+    @apply min-h-screen bg-[rgb(var(--clinical-surface-rgb))];
+    background-image:
+      radial-gradient(ellipse 80% 50% at 0% -10%, rgba(37, 99, 235, 0.06), transparent 50%),
+      radial-gradient(ellipse 60% 40% at 100% 0%, rgba(99, 102, 241, 0.05), transparent 45%);
+  }
+
   .clinical-surface {
     @apply bg-[rgb(var(--clinical-surface-rgb))];
   }
 
-  /* Carte / module de données — blanc qui "pop" sur le fond tonal */
+  .clinical-panel {
+    @apply rounded-2xl bg-white/90 shadow-medical ring-1 ring-slate-900/[0.04] backdrop-blur-md;
+  }
+
   .clinical-card {
-    @apply rounded-xl bg-white shadow-medical ring-1 ring-slate-900/[0.04] transition-shadow duration-300;
+    @apply rounded-2xl bg-white shadow-medical ring-1 ring-slate-900/[0.04] transition-all duration-300;
   }
+
   .clinical-card-hover {
-    @apply hover:shadow-medical-lg hover:ring-slate-900/[0.06];
+    @apply hover:-translate-y-0.5 hover:shadow-medical-lg hover:ring-slate-900/[0.07];
   }
 
-  /* En-tête de tableau haute densité (label uppercase) */
+  .clinical-gradient {
+    background: var(--accent-gradient);
+  }
+
+  .clinical-gradient-text {
+    @apply bg-clip-text text-transparent;
+    background-image: var(--accent-gradient);
+  }
+
+  .clinical-button {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-blue-500 to-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-medical-blue transition-all duration-200 hover:from-blue-600 hover:to-blue-700 hover:shadow-medical-lg active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50;
+  }
+
+  .clinical-input {
+    @apply h-11 w-full rounded-xl border border-slate-200/90 bg-white px-4 text-sm text-slate-900 shadow-medical-sm transition-all duration-200 placeholder:text-slate-400 hover:border-slate-300 focus-visible:border-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/25;
+  }
+
+  .clinical-table {
+    @apply w-full text-sm;
+  }
+
   .clinical-th {
-    @apply bg-slate-50/80 px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500;
+    @apply bg-slate-50/90 px-5 py-3.5 text-left text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500;
   }
+
   .clinical-td {
-    @apply px-4 py-3 text-sm text-slate-700;
+    @apply px-5 py-4 text-sm text-slate-700;
   }
 
-  /* Lignes sans bordures lourdes : "ghost border" en bas seulement */
   .clinical-row {
-    @apply border-b border-slate-100 transition-colors hover:bg-slate-50/70;
+    @apply border-b border-slate-100/80 transition-colors duration-150 hover:bg-blue-50/30;
   }
 
-  /* CTA gradient médical signature */
+  .bento-grid {
+    @apply grid gap-4 sm:gap-5;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  }
+
+  .bento-grid-4 {
+    @apply grid grid-cols-2 gap-4 md:grid-cols-4 md:gap-5;
+  }
+
+  .status-chip {
+    @apply inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold;
+  }
+
+  .status-chip-neutral {
+    @apply status-chip bg-slate-100 text-slate-600;
+  }
+
+  .status-chip-info {
+    @apply status-chip bg-sky-100 text-sky-700;
+  }
+
+  .status-chip-success {
+    @apply status-chip bg-emerald-100 text-emerald-700;
+  }
+
+  .status-chip-warning {
+    @apply status-chip bg-amber-100 text-amber-800;
+  }
+
+  .status-chip-danger {
+    @apply status-chip bg-red-100 text-red-700;
+  }
+
+  .status-chip-active {
+    @apply status-chip bg-violet-100 text-violet-700;
+  }
+
+  .soft-shadow {
+    box-shadow: 0 4px 24px -4px rgba(15, 23, 42, 0.08), 0 2px 8px -2px rgba(15, 23, 42, 0.04);
+  }
+
   .btn-medical {
-    @apply bg-gradient-to-b from-blue-500 to-blue-600 text-white shadow-medical-blue transition-all duration-200 hover:from-blue-600 hover:to-blue-700 active:scale-[0.98];
+    @apply clinical-button;
+  }
+
+  .clinical-sidebar-brand {
+    @apply flex items-center gap-3 px-1;
+  }
+
+  .clinical-sidebar-brand-icon {
+    @apply flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-medical-blue;
+  }
+
+  .clinical-topbar {
+    @apply sticky top-0 z-20 flex h-16 shrink-0 items-center justify-between gap-4 border-b border-slate-200/60 bg-white/75 px-4 backdrop-blur-xl sm:px-6 lg:px-8;
+  }
+
+  .clinical-content-well {
+    @apply mx-auto w-full max-w-[1440px] flex-1 px-4 py-6 sm:px-6 sm:py-8 lg:px-10;
+  }
+
+  .clinical-main-panel {
+    @apply min-h-[calc(100dvh-4rem)] rounded-2xl bg-white/80 p-5 shadow-medical ring-1 ring-slate-900/[0.03] backdrop-blur-sm sm:p-7 md:p-8;
   }
 }
 
 @layer utilities {
   .shadow-premium {
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -4px rgba(0, 0, 0, 0.025);
+    box-shadow: 0 10px 40px -8px rgba(15, 23, 42, 0.1), 0 4px 12px -4px rgba(15, 23, 42, 0.05);
+  }
+
+  .fade-in-up {
+    animation: fade-in-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  .stagger-1 { animation-delay: 0.05s; }
+  .stagger-2 { animation-delay: 0.1s; }
+  .stagger-3 { animation-delay: 0.15s; }
+  .stagger-4 { animation-delay: 0.2s; }
+
+  @keyframes fade-in-up {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
   }
 
   @keyframes voice-wave {
-    0%,
-    100% {
-      transform: scaleY(0.35);
-      opacity: 0.65;
-    }
-    50% {
-      transform: scaleY(1);
-      opacity: 1;
-    }
+    0%, 100% { transform: scaleY(0.35); opacity: 0.65; }
+    50% { transform: scaleY(1); opacity: 1; }
   }
 
   .animate-voice-wave {
     animation: voice-wave 0.85s ease-in-out infinite;
     transform-origin: center bottom;
   }
+
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+
+  .skeleton-shimmer {
+    background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+  }
 }
 
-/* Ordonnance — impression navigateur (vue /dashboard/.../print) */
 @media print {
   @page {
     size: A4;

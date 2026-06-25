@@ -11,16 +11,16 @@ export type StatusTone =
   | 'active';
 
 const TONE_CLASS: Record<StatusTone, string> = {
-  neutral: 'bg-slate-100 text-slate-600',
-  info: 'bg-sky-100 text-sky-700',
-  success: 'bg-emerald-100 text-emerald-700',
-  warning: 'bg-amber-100 text-amber-700',
-  danger: 'bg-red-100 text-red-700',
-  active: 'bg-violet-100 text-violet-700',
+  neutral: 'bg-slate-100 text-slate-700 ring-slate-200',
+  info: 'bg-sky-100 text-sky-800 ring-sky-200',
+  success: 'bg-emerald-100 text-emerald-800 ring-emerald-200',
+  warning: 'bg-amber-100 text-amber-800 ring-amber-200',
+  danger: 'bg-red-100 text-red-800 ring-red-200',
+  active: 'bg-violet-100 text-violet-800 ring-violet-200',
 };
 
 const DOT_CLASS: Record<StatusTone, string> = {
-  neutral: 'bg-slate-400',
+  neutral: 'bg-slate-500',
   info: 'bg-sky-500',
   success: 'bg-emerald-500',
   warning: 'bg-amber-500',
@@ -31,16 +31,10 @@ const DOT_CLASS: Record<StatusTone, string> = {
 export interface StatusBadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
   tone?: StatusTone;
   label: string;
-  /** Affiche une pastille colorée (info non portée uniquement par la couleur) */
   dot?: boolean;
-  /** Animation de pulsation (ex. consultation en cours) */
   pulse?: boolean;
 }
 
-/**
- * Chip de statut sobre et cohérent (file d'attente, paiement, RDV…).
- * Le `dot` garantit que l'information n'est pas portée que par la couleur (a11y).
- */
 export function StatusBadge({
   tone = 'neutral',
   label,
@@ -52,14 +46,14 @@ export function StatusBadge({
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold',
+        'inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-bold ring-1',
         TONE_CLASS[tone],
         className
       )}
       {...props}
     >
       {dot ? (
-        <span className="relative flex h-1.5 w-1.5">
+        <span className="relative flex h-2 w-2">
           {pulse ? (
             <span
               className={cn(
@@ -68,7 +62,7 @@ export function StatusBadge({
               )}
             />
           ) : null}
-          <span className={cn('relative inline-flex h-1.5 w-1.5 rounded-full', DOT_CLASS[tone])} />
+          <span className={cn('relative inline-flex h-2 w-2 rounded-full', DOT_CLASS[tone])} />
         </span>
       ) : null}
       {label}

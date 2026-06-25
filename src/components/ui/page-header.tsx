@@ -6,18 +6,11 @@ import { cn } from '@/lib/utils';
 export interface PageHeaderProps extends React.HTMLAttributes<HTMLDivElement> {
   title: string;
   description?: string;
-  /** Icône lucide affichée dans une pastille tonale à gauche du titre */
   icon?: LucideIcon;
-  /** Actions à droite (boutons, filtres…) */
   actions?: React.ReactNode;
-  /** Fil d'ariane ou éléments au-dessus du titre */
   eyebrow?: React.ReactNode;
 }
 
-/**
- * En-tête de page unifié (titre + description + actions) — rythme et hiérarchie cohérents
- * sur tous les écrans du dashboard. Respecte la DA « Clinical Architect ».
- */
 export function PageHeader({
   title,
   description,
@@ -30,28 +23,24 @@ export function PageHeader({
   return (
     <div
       className={cn(
-        'flex flex-col gap-4 pb-6 sm:flex-row sm:items-start sm:justify-between',
+        'mb-8 flex flex-col gap-5 border-b border-slate-100/80 pb-7 sm:flex-row sm:items-end sm:justify-between',
         className
       )}
       {...props}
     >
       <div className="flex min-w-0 items-start gap-4">
         {Icon ? (
-          <span className="mt-0.5 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600 ring-1 ring-blue-100">
+          <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-medical-blue-sm">
             <Icon className="h-5 w-5" strokeWidth={2} aria-hidden />
           </span>
         ) : null}
-        <div className="min-w-0 space-y-1">
+        <div className="min-w-0 space-y-1.5">
           {eyebrow ? (
-            <div className="text-xs font-semibold uppercase tracking-widest text-slate-400">
-              {eyebrow}
-            </div>
+            <div className="text-label-sm text-blue-600">{eyebrow}</div>
           ) : null}
-          <h1 className="truncate text-2xl font-semibold tracking-tight text-slate-900 md:text-[1.7rem]">
-            {title}
-          </h1>
+          <h1 className="text-display-md text-slate-900">{title}</h1>
           {description ? (
-            <p className="max-w-2xl text-sm text-slate-500">{description}</p>
+            <p className="max-w-2xl text-sm leading-relaxed text-slate-500">{description}</p>
           ) : null}
         </div>
       </div>

@@ -1,5 +1,6 @@
 'use client';
 
+import * as React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import useSWR, { mutate as globalMutate } from 'swr';
@@ -56,10 +57,14 @@ function roleLabel(role: string): string {
   }
 }
 
+type SidebarProps = {
+  onNavigate?: () => void;
+};
+
 /**
  * Barre latérale principale du dashboard : navigation + statut temps réel (PATCH + Pusher via API).
  */
-export function Sidebar() {
+export function Sidebar({ onNavigate }: SidebarProps = {}) {
   const pathname = usePathname();
 
   const { data: me } = useSWR<{
@@ -109,152 +114,166 @@ export function Sidebar() {
     }
   };
 
+  const navLink = (href: string, className: string, children: React.ReactNode) => (
+    <Link href={href} className={className} onClick={onNavigate}>
+      {children}
+    </Link>
+  );
+
   return (
     <aside className={styles.sidebar}>
-      <div className="shrink-0 px-3">
+      <div className="shrink-0 px-1">
         {cabinet?.logoUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={cabinet.logoUrl}
             alt=""
-            className="mb-3 h-10 w-auto max-w-[200px] object-contain object-left"
+            className="mb-3 h-9 w-auto max-w-[180px] object-contain object-left brightness-0 invert"
           />
-        ) : null}
+        ) : (
+          <div className="clinical-sidebar-brand mb-1">
+            <span className="clinical-sidebar-brand-icon">
+              <LayoutDashboard className="h-5 w-5" strokeWidth={2} aria-hidden />
+            </span>
+          </div>
+        )}
         <div className={styles.logo}>{cabinetTitle}</div>
+        <p className={styles.logoSub}>Cabinet médical</p>
       </div>
 
       <nav className={styles.nav}>
-        <Link
-          href="/dashboard"
-          className={`${styles.navItem} ${pathname === '/dashboard' ? styles.active : ''}`}
-        >
-          <span className="inline-flex w-5 shrink-0 justify-center">
-            <Home size={20} strokeWidth={2} aria-hidden />
-          </span>
-          Accueil
-        </Link>
-        <Link
-          href="/dashboard/agenda"
-          className={`${styles.navItem} ${pathname === '/dashboard/agenda' ? styles.active : ''}`}
-        >
-          <span className="inline-flex w-5 shrink-0 justify-center">
-            <CalendarDays size={20} strokeWidth={2} aria-hidden />
-          </span>
-          Agenda &amp; RDV
-        </Link>
-        <Link
-          href="/dashboard/patients"
-          className={`${styles.navItem} ${pathname === '/dashboard/patients' ? styles.active : ''}`}
-        >
-          <span className="inline-flex w-5 shrink-0 justify-center">
-            <Users size={20} strokeWidth={2} aria-hidden />
-          </span>
-          Patients
-        </Link>
-
-        <div className="mt-3 pt-4">
-          <p
-            className="mb-2 px-4 text-[10px] font-semibold uppercase tracking-wider text-slate-400"
-            aria-hidden
-          >
-            Tâches personnelles
-          </p>
-          <Link
-            href="/dashboard/todos"
-            className={`${styles.navItem} ${pathname.startsWith('/dashboard/todos') ? styles.active : ''}`}
-          >
-            <span className="inline-flex w-5 shrink-0 justify-center text-slate-600">
-              <CheckSquare size={20} strokeWidth={2} aria-hidden />
+        {navLink(
+          '/dashboard',
+          `${styles.navItem} ${pathname === '/dashboard' ? styles.active : ''}`,
+          <>
+            <span className="inline-flex w-5 shrink-0 justify-center">
+              <Home size={18} strokeWidth={2} aria-hidden />
             </span>
+            Accueil
+          </>
+        )}
+        {navLink(
+          '/dashboard/agenda',
+          `${styles.navItem} ${pathname === '/dashboard/agenda' ? styles.active : ''}`,
+          <>
+            <span className="inline-flex w-5 shrink-0 justify-center">
+              <CalendarDays size={18} strokeWidth={2} aria-hidden />
+            </span>
+            Agenda &amp; RDV
+          </>
+        )}
+        {navLink(
+          '/dashboard/patients',
+          `${styles.navItem} ${pathname === '/dashboard/patients' ? styles.active : ''}`,
+          <>
+            <span className="inline-flex w-5 shrink-0 justify-center">
+              <Users size={18} strokeWidth={2} aria-hidden />
+            </span>
+            Patients
+          </>
+        )}
+
+        <div className={styles.navSection}>
+          <p className={styles.navSectionLabel} aria-hidden>
             Tâches
-          </Link>
+          </p>
+          {navLink(
+            '/dashboard/todos',
+            `${styles.navItem} ${pathname.startsWith('/dashboard/todos') ? styles.active : ''}`,
+            <>
+              <span className="inline-flex w-5 shrink-0 justify-center">
+                <CheckSquare size={18} strokeWidth={2} aria-hidden />
+              </span>
+              Tâches
+            </>
+          )}
         </div>
 
         {showAccounting ? (
-          <div className="mt-3 space-y-1 pt-4">
-            <div
-              className="flex items-center gap-2 px-4 pb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-500"
-              aria-hidden
-            >
-              <Wallet className="h-4 w-4 shrink-0 text-slate-500" strokeWidth={2} />
+          <div className={`${styles.navSection} space-y-1`}>
+            <div className={styles.navSectionLabel} aria-hidden>
+              <Wallet className="h-3.5 w-3.5" strokeWidth={2} />
               Finance
             </div>
-            <Link
-              href="/dashboard/invoices"
-              className={`${styles.navItem} ${styles.navSubItem} ${pathname.startsWith('/dashboard/invoices') ? styles.active : ''}`}
-            >
-              <span className="inline-flex w-5 shrink-0 justify-center text-slate-500">
-                <Receipt size={18} strokeWidth={1.75} aria-hidden />
-              </span>
-              Revenus
-            </Link>
-            <Link
-              href="/dashboard/admin/expenses"
-              className={`${styles.navItem} ${styles.navSubItem} ${pathname.startsWith('/dashboard/admin/expenses') ? styles.active : ''}`}
-            >
-              <span className="inline-flex w-5 shrink-0 justify-center text-slate-500">
-                <Wallet size={18} strokeWidth={1.75} aria-hidden />
-              </span>
-              Dépenses
-            </Link>
-            <Link
-              href="/dashboard/admin/analytics"
-              className={`${styles.navItem} ${styles.navSubItem} ${pathname.startsWith('/dashboard/admin/analytics') ? styles.active : ''}`}
-            >
-              <span className="inline-flex w-5 shrink-0 justify-center text-slate-500">
-                <BarChart3 size={18} strokeWidth={1.75} aria-hidden />
-              </span>
-              Rapports
-            </Link>
+            {navLink(
+              '/dashboard/invoices',
+              `${styles.navItem} ${styles.navSubItem} ${pathname.startsWith('/dashboard/invoices') ? styles.active : ''}`,
+              <>
+                <span className="inline-flex w-5 shrink-0 justify-center">
+                  <Receipt size={16} strokeWidth={1.75} aria-hidden />
+                </span>
+                Revenus
+              </>
+            )}
+            {navLink(
+              '/dashboard/admin/expenses',
+              `${styles.navItem} ${styles.navSubItem} ${pathname.startsWith('/dashboard/admin/expenses') ? styles.active : ''}`,
+              <>
+                <span className="inline-flex w-5 shrink-0 justify-center">
+                  <Wallet size={16} strokeWidth={1.75} aria-hidden />
+                </span>
+                Dépenses
+              </>
+            )}
+            {navLink(
+              '/dashboard/admin/analytics',
+              `${styles.navItem} ${styles.navSubItem} ${pathname.startsWith('/dashboard/admin/analytics') ? styles.active : ''}`,
+              <>
+                <span className="inline-flex w-5 shrink-0 justify-center">
+                  <BarChart3 size={16} strokeWidth={1.75} aria-hidden />
+                </span>
+                Rapports
+              </>
+            )}
           </div>
         ) : null}
 
         {isAdmin ? (
-          <div className="mt-3 space-y-1 pt-4">
-            <div
-              className="flex items-center gap-2 px-4 pb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-500"
-              aria-hidden
-            >
-              <LayoutDashboard className="h-4 w-4 shrink-0 text-slate-500" strokeWidth={2} />
+          <div className={`${styles.navSection} space-y-1`}>
+            <div className={styles.navSectionLabel} aria-hidden>
+              <LayoutDashboard className="h-3.5 w-3.5" strokeWidth={2} />
               Administration
             </div>
-            <Link
-              href="/dashboard/admin"
-              className={`${styles.navItem} ${styles.navSubItem} ${pathname === '/dashboard/admin' ? styles.active : ''}`}
-            >
-              <span className="inline-flex w-5 shrink-0 justify-center text-slate-500">
-                <LayoutDashboard size={18} strokeWidth={2} aria-hidden />
-              </span>
-              Vue d&apos;ensemble
-            </Link>
-            <Link
-              href="/dashboard/admin/users"
-              className={`${styles.navItem} ${styles.navSubItem} ${pathname.startsWith('/dashboard/admin/users') ? styles.active : ''}`}
-            >
-              <span className="inline-flex w-5 shrink-0 justify-center text-slate-500">
-                <Users size={18} strokeWidth={2} aria-hidden />
-              </span>
-              Utilisateurs
-            </Link>
-            <Link
-              href="/dashboard/admin/settings"
-              className={`${styles.navItem} ${styles.navSubItem} ${pathname.startsWith('/dashboard/admin/settings') ? styles.active : ''}`}
-            >
-              <span className="inline-flex w-5 shrink-0 justify-center text-slate-500">
-                <Settings size={18} strokeWidth={2} aria-hidden />
-              </span>
-              Paramètres
-            </Link>
+            {navLink(
+              '/dashboard/admin',
+              `${styles.navItem} ${styles.navSubItem} ${pathname === '/dashboard/admin' ? styles.active : ''}`,
+              <>
+                <span className="inline-flex w-5 shrink-0 justify-center">
+                  <LayoutDashboard size={16} strokeWidth={2} aria-hidden />
+                </span>
+                Vue d&apos;ensemble
+              </>
+            )}
+            {navLink(
+              '/dashboard/admin/users',
+              `${styles.navItem} ${styles.navSubItem} ${pathname.startsWith('/dashboard/admin/users') ? styles.active : ''}`,
+              <>
+                <span className="inline-flex w-5 shrink-0 justify-center">
+                  <Users size={16} strokeWidth={2} aria-hidden />
+                </span>
+                Utilisateurs
+              </>
+            )}
+            {navLink(
+              '/dashboard/admin/settings',
+              `${styles.navItem} ${styles.navSubItem} ${pathname.startsWith('/dashboard/admin/settings') ? styles.active : ''}`,
+              <>
+                <span className="inline-flex w-5 shrink-0 justify-center">
+                  <Settings size={16} strokeWidth={2} aria-hidden />
+                </span>
+                Paramètres
+              </>
+            )}
           </div>
         ) : null}
       </nav>
 
-      <div className="mt-auto flex w-full shrink-0 flex-col gap-4 pt-5">
+      <div className="mt-auto flex w-full shrink-0 flex-col gap-4 border-t border-white/10 pt-5">
         <div className="flex items-center justify-between px-1">
-          <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
             Affichage
           </span>
-          <ThemeToggle className="h-9 w-9 shrink-0 border-slate-200 bg-white shadow-sm" />
+          <ThemeToggle className="h-9 w-9 shrink-0 border-white/10 bg-white/5 text-slate-300 shadow-none hover:bg-white/10" />
         </div>
         {isDoctor && me?.id && <AssistantStatusMini doctorId={me.id} />}
 
@@ -263,7 +282,7 @@ export function Sidebar() {
             <div className="flex items-center gap-3 px-1">
               <div
                 className={cn(
-                  'flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-blue-600 text-sm font-bold text-white shadow-sm',
+                  'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-400 to-indigo-600 text-sm font-bold text-white shadow-medical-blue-sm',
                   isDoctor && statusAvatarRing(status)
                 )}
                 title={`Statut : ${status}`}
@@ -271,17 +290,17 @@ export function Sidebar() {
                 {initial}
               </div>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold text-slate-900">{me?.nom ?? '…'}</p>
-                <p className="truncate text-xs text-slate-500">{roleLabel(role)}</p>
+                <p className="truncate text-sm font-semibold text-slate-100">{me?.nom ?? '…'}</p>
+                <p className="truncate text-xs text-slate-400">{roleLabel(role)}</p>
               </div>
             </div>
 
             <div className="space-y-1.5 px-0.5">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
                 Ma disponibilité
               </p>
               <Select value={status} onValueChange={(v) => patchMyStatus(v as UserStatusType)}>
-                <SelectTrigger className="h-10 w-full border-slate-200 bg-white text-left text-sm shadow-sm">
+                <SelectTrigger className="h-10 w-full border-white/10 bg-white/5 text-left text-sm text-slate-200 shadow-none">
                   <SelectValue placeholder="Statut" />
                 </SelectTrigger>
                 <SelectContent>

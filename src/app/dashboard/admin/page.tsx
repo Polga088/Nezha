@@ -3,21 +3,19 @@
 import { LayoutDashboard } from 'lucide-react';
 
 import { DailyOverview } from '@/components/dashboard/DailyOverview';
-import { PageHeader } from '@/components/ui/page-header';
+import { DashboardHero } from '@/components/ui/dashboard-hero';
 
 export default function AdminDashboard() {
   return (
     <div className="animate-fade-in pb-8">
-      <PageHeader
+      <DashboardHero
         icon={LayoutDashboard}
         eyebrow="Administration"
         title="Vue d'ensemble"
-        description="Pilotage du jour — rendez-vous et file d'attente."
+        description="Pilotage du cabinet — rendez-vous, file d'attente et encaissements du jour."
       />
 
-      <div className="max-w-5xl">
-        <DailyOverview />
-      </div>
+      <DailyOverview />
     </div>
   );
 }

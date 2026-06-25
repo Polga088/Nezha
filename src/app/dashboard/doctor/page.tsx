@@ -27,6 +27,9 @@ import {
 import { APPOINTMENT_STATUS_LABEL } from '@/lib/appointment-status'
 import { cn } from '@/lib/utils'
 import { DoctorAvailabilityCard } from '@/components/doctor/DoctorAvailabilityCard'
+import { DashboardHero } from '@/components/ui/dashboard-hero'
+import { MetricCard } from '@/components/ui/metric-card'
+import { EmptyState } from '@/components/ui/empty-state'
 
 const fetcher = (url: string) =>
   fetch(url, { credentials: 'same-origin' }).then((r) => {
@@ -244,46 +247,20 @@ export default function DoctorDashboard() {
 
   return (
     <div className="animate-fade-in pb-12">
-      {/* Header */}
-      <header className="mb-8 space-y-1">
-        <p className="text-sm font-medium uppercase tracking-widest text-slate-400">
-          {format(now, 'EEEE d MMMM yyyy', { locale: fr })}
-        </p>
-        <h1 className="text-2xl font-light tracking-tight text-slate-700">
-          {greeting}{doctorName ? `, ${doctorName}` : ''}
-        </h1>
-      </header>
+      <DashboardHero
+        icon={Stethoscope}
+        eyebrow={format(now, 'EEEE d MMMM yyyy', { locale: fr })}
+        title={`${greeting}${doctorName ? `, ${doctorName}` : ''}`}
+        description="Vue opérationnelle — file d'attente et planning du jour."
+      />
 
-      {/* Main Grid — 70 / 30 asymétrique */}
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,7fr)_minmax(0,3fr)]">
-        {/* ===== LEFT COLUMN (70%) ===== */}
         <div className="min-w-0 space-y-6">
-          {/* KPI Row */}
-          <div className="grid grid-cols-2 gap-6 md:grid-cols-4">
-            <KpiCard
-              label="Rendez-vous"
-              value={isLoading ? '—' : sortedToday.length}
-              icon={<CalendarCheck className="h-5 w-5" strokeWidth={1.25} aria-hidden />}
-              accent="blue"
-            />
-            <KpiCard
-              label="File d'attente"
-              value={isLoading ? '—' : queue.length}
-              icon={<Users className="h-5 w-5" strokeWidth={1.25} aria-hidden />}
-              accent="amber"
-            />
-            <KpiCard
-              label="Terminés"
-              value={isLoading ? '—' : completedCount}
-              icon={<UserCheck className="h-5 w-5" strokeWidth={1.25} aria-hidden />}
-              accent="emerald"
-            />
-            <KpiCard
-              label="Annulés"
-              value={isLoading ? '—' : canceledCount}
-              icon={<XIcon className="h-5 w-5" strokeWidth={1.25} aria-hidden />}
-              accent="slate"
-            />
+          <div className="bento-grid-4">
+            <MetricCard label="Rendez-vous" value={isLoading ? '—' : sortedToday.length} icon={CalendarCheck} accent="blue" />
+            <MetricCard label="File d'attente" value={isLoading ? '—' : queue.length} icon={Users} accent="amber" />
+            <MetricCard label="Terminés" value={isLoading ? '—' : completedCount} icon={UserCheck} accent="emerald" />
+            <MetricCard label="Annulés" value={isLoading ? '—' : canceledCount} icon={XIcon} accent="slate" />
           </div>
 
           {/* Current Consultation Banner */}
@@ -343,12 +320,11 @@ export default function DoctorDashboard() {
             {queueLoading && <LoadingSkeleton count={3} />}
 
             {!queueLoading && queue.length === 0 && (
-              <div className="rounded-2xl border-0 bg-white py-14 text-center shadow-sm">
-                <Users className="mx-auto h-8 w-8 text-slate-300" />
-                <p className="mt-3 text-sm text-slate-400">
-                  Aucun patient en file d&apos;attente
-                </p>
-              </div>
+              <EmptyState
+                icon={Users}
+                title="File d'attente vide"
+                description="Aucun patient en file d'attente pour le moment."
+              />
             )}
 
             <div>
@@ -462,12 +438,11 @@ export default function DoctorDashboard() {
             {apptsLoading && <LoadingSkeleton count={4} />}
 
             {!apptsLoading && sortedToday.length === 0 && (
-              <div className="rounded-2xl border-0 bg-white py-14 text-center shadow-sm">
-                <CalendarCheck className="mx-auto h-8 w-8 text-slate-300" />
-                <p className="mt-3 text-sm text-slate-400">
-                  Aucun rendez-vous aujourd&apos;hui
-                </p>
-              </div>
+              <EmptyState
+                icon={CalendarCheck}
+                title="Planning vide"
+                description="Aucun rendez-vous prévu pour aujourd'hui."
+              />
             )}
 
             <div>
@@ -715,38 +690,6 @@ export default function DoctorDashboard() {
 }
 
 /* ── Sub-Components ──────────────────────────────────────────────── */
-
-const KpiCard = ({
-  label,
-  value,
-  icon,
-  accent,
-}: {
-  label: string
-  value: number | string
-  icon: React.ReactNode
-  accent: 'blue' | 'amber' | 'emerald' | 'slate'
-}) => {
-  const iconColors = {
-    blue: 'text-blue-500',
-    amber: 'text-amber-500',
-    emerald: 'text-emerald-500',
-    slate: 'text-slate-400',
-  }
-  return (
-    <div className="rounded-2xl border-0 bg-white p-6 shadow-none transition-shadow duration-200 hover:shadow-md">
-      <div className="flex items-center justify-between">
-        <span className={cn('opacity-90', iconColors[accent])}>{icon}</span>
-      </div>
-      <p className="mt-4 text-4xl font-light tabular-nums text-blue-600">
-        {value}
-      </p>
-      <p className="mt-2 text-xs font-medium uppercase tracking-widest text-slate-400">
-        {label}
-      </p>
-    </div>
-  )
-}
 
 const StatusBadge = ({ statusKey: sk, label }: { statusKey: string; label: string }) => {
   const style = STATUS_BADGE[sk] ?? STATUS_BADGE.WAITING
