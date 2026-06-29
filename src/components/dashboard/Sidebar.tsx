@@ -1,12 +1,14 @@
 'use client';
 
 import * as React from 'react';
+import { useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import useSWR, { mutate as globalMutate } from 'swr';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import {
+  MANUAL_USER_STATUS_VALUES,
   USER_STATUS_LABELS,
   statusAvatarRing,
   type UserStatusType,
@@ -36,6 +38,7 @@ import {
 } from '@/components/ui/select';
 import styles from '@/app/dashboard/dashboard.module.css';
 import { PUBLIC_CABINET_SWR_KEY, type PublicCabinetBranding } from '@/lib/cabinet-branding';
+import { getPusherClient } from '@/lib/pusher-client';
 
 const ME_KEY = '/api/auth/me';
 const CONTACTS_KEY = '/api/chat/contacts';
@@ -76,6 +79,7 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
     nom: string;
     role: string;
     userStatus?: UserStatusType;
+    effectiveStatus?: UserStatusType;
   }>(ME_KEY, fetcher, { revalidateOnFocus: true });
 
   const { data: cabinet } = useSWR<PublicCabinetBranding>(PUBLIC_CABINET_SWR_KEY, fetcher, {
@@ -84,10 +88,37 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
 
   const role = me?.role ? String(me.role).toUpperCase() : '';
   const isStaff = STAFF_ROLES.has(role);
-  const status = (me?.userStatus ?? 'OFFLINE') as UserStatusType;
+  const manualStatus = (me?.userStatus ?? 'OFFLINE') as UserStatusType;
+  const effectiveStatus = (me?.effectiveStatus ?? manualStatus) as UserStatusType;
   const isDoctor = role === 'DOCTOR';
   const isAdmin = role === 'ADMIN';
   const showAccounting = isAdmin || isDoctor;
+
+  useEffect(() => {
+    if (!me?.id) return;
+    const pusher = getPusherClient();
+    if (!pusher) return;
+
+    const channelName = `private-user-${me.id}`;
+    const channel = pusher.subscribe(channelName);
+
+    channel.bind(
+      'user-status',
+      (payload: { userId: string }) => {
+        if (payload.userId !== me.id) {
+          void globalMutate(CONTACTS_KEY);
+          return;
+        }
+        void globalMutate(ME_KEY);
+        void globalMutate(CONTACTS_KEY);
+      }
+    );
+
+    return () => {
+      channel.unbind_all();
+      pusher.unsubscribe(channelName);
+    };
+  }, [me?.id]);
 
   const patchMyStatus = async (userStatus: UserStatusType) => {
     const res = await fetch('/api/users/status', {
@@ -297,9 +328,9 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
               <div
                 className={cn(
                   'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-400 to-indigo-600 text-sm font-bold text-white shadow-medical-blue-sm',
-                  isDoctor && statusAvatarRing(status)
+                  isDoctor && statusAvatarRing(effectiveStatus)
                 )}
-                title={`Statut : ${status}`}
+                title={`Statut : ${effectiveStatus}`}
               >
                 {initial}
               </div>
@@ -313,12 +344,15 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
               <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
                 Ma disponibilité
               </p>
-              <Select value={status} onValueChange={(v) => patchMyStatus(v as UserStatusType)}>
+              <Select
+                value={manualStatus}
+                onValueChange={(v) => patchMyStatus(v as UserStatusType)}
+              >
                 <SelectTrigger className="h-10 w-full border-[#E2E8F0] bg-[#F8FAFC] text-left text-sm text-[#172033] shadow-none">
                   <SelectValue placeholder="Statut" />
                 </SelectTrigger>
                 <SelectContent>
-                  {(['AVAILABLE', 'BUSY', 'IN_CONSULTATION', 'ON_BREAK', 'AWAY', 'DONE_TODAY', 'OFFLINE'] as UserStatusType[]).map((v) => (
+                  {MANUAL_USER_STATUS_VALUES.map((v) => (
                     <SelectItem key={v} value={v}>
                       {USER_STATUS_LABELS[v]}
                     </SelectItem>

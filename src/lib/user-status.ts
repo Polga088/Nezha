@@ -30,18 +30,31 @@ export const USER_STATUS_LABELS: Record<UserStatusType, string> = {
   OFFLINE: 'Hors ligne',
 };
 
-/** Statuts proposés au médecin pour changement rapide (hors OFFLINE auto). */
-export const DOCTOR_QUICK_STATUSES: UserStatusType[] = [
+/**
+ * Statuts manuels proposés dans l’UI.
+ * `IN_CONSULTATION` est réservé au statut effectif dérivé des rendez-vous.
+ */
+export const MANUAL_USER_STATUS_VALUES: UserStatusType[] = [
   'AVAILABLE',
   'BUSY',
-  'IN_CONSULTATION',
   'ON_BREAK',
   'AWAY',
   'DONE_TODAY',
+  'OFFLINE',
 ];
+
+/** Raccourcis médecin : mêmes statuts manuels, hors `OFFLINE` dans la carte dédiée. */
+export const DOCTOR_QUICK_STATUSES: UserStatusType[] = MANUAL_USER_STATUS_VALUES.filter(
+  (status) => status !== 'OFFLINE'
+);
 
 export function isUserStatus(s: unknown): s is UserStatusType {
   return typeof s === 'string' && USER_STATUS_VALUES.includes(s as UserStatusType);
+}
+
+/** Normalise les anciennes valeurs persistées où `IN_CONSULTATION` était stocké manuellement. */
+export function normalizeDoctorManualStatus(status: UserStatusType): UserStatusType {
+  return status === 'IN_CONSULTATION' ? 'AVAILABLE' : status;
 }
 
 export function canReceivePatient(status: UserStatusType): boolean {

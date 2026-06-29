@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import useSWR, { mutate as globalMutate } from 'swr';
+import useSWR from 'swr';
 import { differenceInMinutes } from 'date-fns';
 import { Loader2, Radio, ShieldAlert, UserCheck } from 'lucide-react';
 import { toast } from 'sonner';
@@ -29,6 +29,7 @@ type DoctorRow = {
   userStatus: UserStatusType;
   effectiveStatus: UserStatusType;
   userStatusChangedAt: string;
+  effectiveStatusChangedAt: string;
   canReceivePatient: boolean;
   inConsultation: boolean;
   inConsultationPatient?: { prenom: string; nom: string } | null;
@@ -94,9 +95,10 @@ export function DoctorStatusBanner() {
   const presentation = useMemo(() => statusPresentation(effective), [effective]);
 
   const subtitle = useMemo(() => {
-    if (!doctor?.userStatusChangedAt) return null;
-    return elapsedLabel(presentation.label, doctor.userStatusChangedAt);
-  }, [doctor?.userStatusChangedAt, presentation.label, tick]);
+    void tick;
+    if (!doctor?.effectiveStatusChangedAt) return null;
+    return elapsedLabel(presentation.label, doctor.effectiveStatusChangedAt);
+  }, [doctor?.effectiveStatusChangedAt, presentation.label, tick]);
 
   const sendSignal = async () => {
     if (!doctor?.id || sending) return;

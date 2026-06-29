@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireStaff } from '@/lib/requireStaff';
+import {
+  getDoctorStatusPayload,
+} from '@/lib/doctor-status-helpers';
+import { normalizeDoctorManualStatus, type UserStatusType } from '@/lib/user-status';
 
 /** GET /api/chat/contacts — collègues (ADMIN / DOCTOR / ASSISTANT) actifs + statut */
 export async function GET(request: NextRequest) {
@@ -23,5 +27,19 @@ export async function GET(request: NextRequest) {
     orderBy: { nom: 'asc' },
   });
 
-  return NextResponse.json(users);
+  const hydrated = await Promise.all(
+    users.map(async (user) => {
+      if (user.role === 'DOCTOR') {
+        const doctor = await getDoctorStatusPayload(user.id);
+        return {
+          ...user,
+          userStatus: doctor?.effectiveStatus ?? normalizeDoctorManualStatus(user.userStatus as UserStatusType),
+        };
+      }
+
+      return user;
+    })
+  );
+
+  return NextResponse.json(hydrated);
 }
