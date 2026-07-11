@@ -5,10 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { verifyJwt } from '@/lib/auth';
 import { notifyAssistantsReadyForBilling } from '@/lib/notification-events';
 import { triggerPaymentPending, broadcastUserStatus } from '@/lib/pusher-server';
-import {
-  getUserStatusBroadcastPayload,
-  syncDoctorStatusOnConsultation,
-} from '@/lib/doctor-status-helpers';
+import { syncDoctorStatusOnConsultation } from '@/lib/doctor-status-helpers';
 
 /** Message exploitable côté client / logs (Prisma renvoie code + meta utiles). */
 const formatPrismaCloseError = (e: unknown): string => {
@@ -133,9 +130,16 @@ export async function POST(
 
     try {
       await syncDoctorStatusOnConsultation(appt.doctor_id, 'close');
-      const payload = await getUserStatusBroadcastPayload(appt.doctor_id);
-      if (payload) {
-        await broadcastUserStatus(payload);
+      const doc = await prisma.user.findUnique({
+        where: { id: appt.doctor_id },
+        select: { userStatus: true, userStatusChangedAt: true },
+      });
+      if (doc) {
+        await broadcastUserStatus({
+          userId: appt.doctor_id,
+          userStatus: doc.userStatus,
+          userStatusChangedAt: doc.userStatusChangedAt.toISOString(),
+        });
       }
     } catch (syncErr) {
       console.error('[POST /api/appointments/:id/close] sync doctor status', syncErr);

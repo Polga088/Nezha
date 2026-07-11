@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireStaff } from '@/lib/requireStaff';
 import { broadcastUserStatus } from '@/lib/pusher-server';
-import { getUserStatusBroadcastPayload } from '@/lib/doctor-status-helpers';
 import { isUserStatus, type UserStatusType } from '@/lib/user-status';
 
 function logRouteError(route: string, e: unknown) {
@@ -20,17 +19,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json(
         {
           error:
-            'userStatus requis : AVAILABLE | BUSY | ON_BREAK | AWAY | DONE_TODAY | OFFLINE',
-        },
-        { status: 400 }
-      );
-    }
-
-    if (body.userStatus === 'IN_CONSULTATION') {
-      return NextResponse.json(
-        {
-          error:
-            'Le statut IN_CONSULTATION est piloté automatiquement par les consultations en cours.',
+            'userStatus requis : AVAILABLE | BUSY | IN_CONSULTATION | ON_BREAK | AWAY | DONE_TODAY | OFFLINE',
         },
         { status: 400 }
       );
@@ -55,10 +44,11 @@ export async function PATCH(request: NextRequest) {
     });
 
     try {
-      const payload = await getUserStatusBroadcastPayload(user.id);
-      if (payload) {
-        await broadcastUserStatus(payload);
-      }
+      await broadcastUserStatus({
+        userId: user.id,
+        userStatus: user.userStatus,
+        userStatusChangedAt: user.userStatusChangedAt.toISOString(),
+      });
     } catch (broadcastErr) {
       console.error(
         '[users/status] broadcast Pusher échoué (statut déjà enregistré en base):',

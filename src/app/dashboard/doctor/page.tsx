@@ -192,17 +192,12 @@ export default function DoctorDashboard() {
   const handleStartConsultation = useCallback(
     async (apptId: string) => {
       try {
-        const res = await fetch(`/api/appointments/${apptId}`, {
+        await fetch(`/api/appointments/${apptId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'same-origin',
           body: JSON.stringify({ statut: 'IN_PROGRESS' }),
         })
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({}))
-          toast.error(err.error || 'Erreur lors du démarrage')
-          return
-        }
         toast.success('Consultation démarrée')
         mutateAppts()
         mutateQueue()
@@ -399,7 +394,7 @@ export default function DoctorDashboard() {
                         'flex shrink-0 gap-2 transition-all duration-200',
                         isHovered ? 'opacity-100 translate-x-0' : 'pointer-events-none opacity-0 translate-x-2'
                       )}>
-                        {rdv.statut === 'WAITING' && !inProgressAppt && (
+                        {rdv.statut === 'WAITING' && (
                           <button
                             type="button"
                             onClick={() => handleStartConsultation(rdv.id)}
@@ -543,7 +538,7 @@ export default function DoctorDashboard() {
                               : 'pointer-events-none opacity-0 translate-x-2'
                           )}
                         >
-                          {rdv.statut === 'WAITING' && !inProgressAppt && (
+                          {rdv.statut === 'WAITING' && (
                             <button
                               type="button"
                               onClick={() => handleStartConsultation(rdv.id)}
@@ -672,11 +667,10 @@ export default function DoctorDashboard() {
               <button
                 type="button"
                 onClick={() => handleStartConsultation(nextUrgent.id)}
-                disabled={Boolean(inProgressAppt)}
-                className="mt-4 w-full rounded-xl bg-gradient-to-b from-red-500 to-red-600 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:shadow-md disabled:opacity-50"
+                className="mt-4 w-full rounded-xl bg-gradient-to-b from-red-500 to-red-600 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:shadow-md"
                 aria-label="Recevoir patient urgent"
               >
-                {inProgressAppt ? 'Consultation déjà en cours' : 'Recevoir maintenant'}
+                Recevoir maintenant
               </button>
             </div>
           )}

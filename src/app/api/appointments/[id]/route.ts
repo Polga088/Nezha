@@ -5,10 +5,7 @@ import { colorForAppointmentType, parseAppointmentType } from '@/lib/appointment
 import { parseBookingChannel } from '@/lib/booking-channel';
 import { verifyJwt } from '@/lib/auth';
 import { notifyDoctorPatientInWaitingRoom } from '@/lib/notification-events';
-import {
-  getUserStatusBroadcastPayload,
-  syncDoctorStatusOnConsultation,
-} from '@/lib/doctor-status-helpers';
+import { syncDoctorStatusOnConsultation } from '@/lib/doctor-status-helpers';
 import { broadcastUserStatus } from '@/lib/pusher-server';
 import type { NextRequest } from 'next/server';
 import type { AppointmentStatus } from '@/generated/prisma/client';
@@ -114,33 +111,6 @@ export async function PUT(
         return NextResponse.json({ error: 'Statut invalide' }, { status: 400 });
       }
       const target = raw as AppointmentStatus;
-
-      if (target === 'IN_PROGRESS' && existing.statut !== 'IN_PROGRESS') {
-        const otherInProgress = await prisma.appointment.findFirst({
-          where: {
-            doctor_id: existing.doctor_id,
-            statut: 'IN_PROGRESS',
-            id: { not: id },
-          },
-          select: {
-            id: true,
-            patient: { select: { prenom: true, nom: true } },
-          },
-        });
-
-        if (otherInProgress) {
-          const patientLabel = otherInProgress.patient
-            ? `${otherInProgress.patient.prenom} ${otherInProgress.patient.nom}`.trim()
-            : 'un autre patient';
-          return NextResponse.json(
-            {
-              error: `Une autre consultation est déjà en cours pour ${patientLabel}. Clôturez-la avant d'en démarrer une nouvelle.`,
-            },
-            { status: 409 }
-          );
-        }
-      }
-
       data.statut = target;
 
       if (target === 'WAITING' && existing.statut !== 'WAITING') {
@@ -241,9 +211,16 @@ export async function PUT(
     if (updated.statut === 'IN_PROGRESS' && existing.statut !== 'IN_PROGRESS') {
       try {
         await syncDoctorStatusOnConsultation(updated.doctor_id, 'start');
-        const payload = await getUserStatusBroadcastPayload(updated.doctor_id);
-        if (payload) {
-          await broadcastUserStatus(payload);
+        const doc = await prisma.user.findUnique({
+          where: { id: updated.doctor_id },
+          select: { userStatus: true, userStatusChangedAt: true },
+        });
+        if (doc) {
+          await broadcastUserStatus({
+            userId: updated.doctor_id,
+            userStatus: doc.userStatus,
+            userStatusChangedAt: doc.userStatusChangedAt.toISOString(),
+          });
         }
       } catch (syncErr) {
         console.error('[PUT /api/appointments/:id] sync doctor status', syncErr);

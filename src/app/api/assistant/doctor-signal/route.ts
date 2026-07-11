@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAssistant } from '@/lib/requireAssistant';
-import { resolveAssistantVisibleDoctorId } from '@/lib/doctor-status-helpers';
 import { triggerAssistantSignal } from '@/lib/pusher-server';
 
 /** POST /api/assistant/doctor-signal — flash discret sur l’écran du médecin. */
@@ -14,7 +13,7 @@ export async function POST(request: NextRequest) {
     const doctorId =
       typeof body.doctorId === 'string' && body.doctorId.length > 0
         ? body.doctorId
-        : await resolveAssistantVisibleDoctorId();
+        : null;
 
     const doctor = doctorId
       ? await prisma.user.findFirst({
@@ -25,7 +24,11 @@ export async function POST(request: NextRequest) {
           },
           select: { id: true },
         })
-      : null;
+      : await prisma.user.findFirst({
+          where: { role: 'DOCTOR', isActive: true },
+          orderBy: { nom: 'asc' },
+          select: { id: true },
+        });
 
     if (!doctor) {
       return NextResponse.json({ error: 'Médecin introuvable' }, { status: 404 });

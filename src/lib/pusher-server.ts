@@ -46,7 +46,7 @@ export async function triggerNewMessage(
   await p.trigger(`private-user-${receiverId}`, 'new-message', payload);
 }
 
-/** Événement `user-status` sur le canal privé de chaque membre actif du staff, y compris l’émetteur. */
+/** Événement `user-status` sur le canal privé de chaque autre membre du staff. */
 export async function broadcastUserStatus(payload: {
   userId: string;
   userStatus: string;
@@ -57,6 +57,7 @@ export async function broadcastUserStatus(payload: {
 
   const peers = await prisma.user.findMany({
     where: {
+      id: { not: payload.userId },
       isActive: true,
       role: { in: ['ADMIN', 'DOCTOR', 'ASSISTANT'] },
     },

@@ -42,7 +42,6 @@ const STATUS_ICONS: Partial<Record<UserStatusType, typeof UserCheck>> = {
 type DoctorStatusRow = {
   effectiveStatus: UserStatusType;
   userStatus: UserStatusType;
-  effectiveStatusChangedAt?: string;
   canReceivePatient: boolean;
   inConsultation: boolean;
   inConsultationPatient?: { prenom: string; nom: string } | null;
@@ -61,7 +60,6 @@ export function DoctorStatusQuickCard({ className }: { className?: string }) {
   const effective = doctor?.effectiveStatus ?? 'OFFLINE';
   const presentation = statusPresentation(effective);
   const [patching, setPatching] = useState<UserStatusType | null>(null);
-  const manualStatus = doctor?.userStatus ?? 'OFFLINE';
 
   const useRealtime =
     typeof process.env.NEXT_PUBLIC_PUSHER_KEY === 'string' &&
@@ -83,6 +81,12 @@ export function DoctorStatusQuickCard({ className }: { className?: string }) {
   }, [useRealtime, me?.id, mutate]);
 
   const patchStatus = async (userStatus: UserStatusType) => {
+    if (doctor?.inConsultation && userStatus !== 'IN_CONSULTATION') {
+      toast.message('Consultation en cours', {
+        description: 'Clôturez la consultation avant de changer de statut.',
+      });
+      return;
+    }
     setPatching(userStatus);
     try {
       const res = await fetch('/api/users/status', {
@@ -126,11 +130,6 @@ export function DoctorStatusQuickCard({ className }: { className?: string }) {
                 Patient : {doctor.inConsultationPatient.prenom} {doctor.inConsultationPatient.nom}
               </p>
             ) : null}
-            {doctor?.inConsultation ? (
-              <p className="mt-1 text-xs font-medium text-[#64748B]">
-                Après clôture : {statusPresentation(manualStatus).label}
-              </p>
-            ) : null}
           </div>
           <span
             className={cn(
@@ -153,7 +152,7 @@ export function DoctorStatusQuickCard({ className }: { className?: string }) {
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             {DOCTOR_QUICK_STATUSES.map((st) => {
               const Icon = STATUS_ICONS[st] ?? UserCheck;
-              const active = manualStatus === st;
+              const active = effective === st;
               const p = statusPresentation(st);
               return (
                 <Button
