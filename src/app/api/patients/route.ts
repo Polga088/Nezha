@@ -115,8 +115,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Poids hors plage (1–500 kg)' }, { status: 400 });
     }
 
+    const normalizedInsuranceTypeId =
+      insuranceTypeIdRaw === '' || insuranceTypeIdRaw === null
+        ? undefined
+        : insuranceTypeIdRaw;
+
     const insuranceResolved = await resolvePatientInsuranceInput({
-      insuranceTypeId: insuranceTypeIdRaw,
+      insuranceTypeId: normalizedInsuranceTypeId,
       assuranceType: assuranceRaw,
       matriculeAssurance: matriculeAssuranceRaw,
     });
