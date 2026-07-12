@@ -38,7 +38,7 @@ import styles from '@/app/dashboard/dashboard.module.css';
 import { PUBLIC_CABINET_SWR_KEY, type PublicCabinetBranding } from '@/lib/cabinet-branding';
 
 const ME_KEY = '/api/auth/me';
-const CONTACTS_KEY = '/api/chat/contacts';
+const DOCTOR_STATUS_KEY = '/api/doctor/status';
 
 const fetcher = async (url: string) => {
   const res = await fetch(url, { credentials: 'same-origin' });
@@ -97,11 +97,14 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
       body: JSON.stringify({ userStatus }),
     });
     if (!res.ok) {
-      toast.error('Impossible de mettre à jour le statut');
+      const json = await res.json().catch(() => ({}));
+      toast.error(
+        typeof json.error === 'string' ? json.error : 'Impossible de mettre à jour le statut'
+      );
       return;
     }
     await globalMutate(ME_KEY);
-    await globalMutate(CONTACTS_KEY);
+    if (isDoctor) await globalMutate(DOCTOR_STATUS_KEY);
   };
 
   const initial = (me?.nom?.trim().charAt(0) || 'U').toUpperCase();

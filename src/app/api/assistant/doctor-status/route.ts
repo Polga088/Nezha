@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
   if (!doctorRow) {
     doctorRow = await prisma.user.findFirst({
       where: { role: 'DOCTOR', isActive: true },
-      orderBy: { nom: 'asc' },
+      orderBy: [{ userStatusChangedAt: 'desc' }, { nom: 'asc' }],
       select: { id: true },
     });
   }

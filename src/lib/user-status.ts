@@ -44,6 +44,11 @@ export function isUserStatus(s: unknown): s is UserStatusType {
   return typeof s === 'string' && USER_STATUS_VALUES.includes(s as UserStatusType);
 }
 
+export function normalizeUserStatusInput(s: unknown): UserStatusType | null {
+  if (s === 'ABSENT') return 'AWAY';
+  return isUserStatus(s) ? s : null;
+}
+
 export function canReceivePatient(status: UserStatusType): boolean {
   return status === 'AVAILABLE';
 }

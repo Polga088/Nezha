@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { broadcastUserStatus } from '@/lib/pusher-server';
 import { verifyJwt } from '@/lib/auth';
-import { isUserStatus, type UserStatusType } from '@/lib/user-status';
+import { normalizeUserStatusInput } from '@/lib/user-status';
 
 function logRouteError(route: string, e: unknown) {
   console.error(`[${route}] erreur:`, e);
@@ -42,11 +42,12 @@ export async function PATCH(request: NextRequest) {
 
   try {
     const body = await request.json();
-    if (!isUserStatus(body.userStatus)) {
+    const requestedStatus = normalizeUserStatusInput(body.userStatus);
+    if (!requestedStatus) {
       return NextResponse.json(
         {
           error:
-            'userStatus requis : AVAILABLE | BUSY | IN_CONSULTATION | ON_BREAK | AWAY | DONE_TODAY | OFFLINE',
+            'userStatus requis : AVAILABLE | BUSY | IN_CONSULTATION | ON_BREAK | ABSENT | AWAY | DONE_TODAY | OFFLINE',
         },
         { status: 400 }
       );
@@ -57,7 +58,7 @@ export async function PATCH(request: NextRequest) {
     const user = await prisma.user.update({
       where: { id: staff.id },
       data: {
-        userStatus: body.userStatus as UserStatusType,
+        userStatus: requestedStatus,
         userStatusChangedAt: now,
       },
       select: {
