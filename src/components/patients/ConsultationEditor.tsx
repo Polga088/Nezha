@@ -1,7 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { Activity, Loader2, Save } from 'lucide-react';
+import Link from 'next/link';
+import { Activity, CalendarPlus, Loader2, Save } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -27,6 +28,8 @@ export type ConsultationEditorProps = {
   initialDiagnostic: string;
   /** Ex. bouton Ordonnance à droite du titre */
   headerAction?: ReactNode;
+  /** Contexte affiché près des actions pour éviter toute sauvegarde sur un mauvais RDV. */
+  appointmentContextLabel?: string | null;
   /** Sync temps réel (ex. alertes cliniques sur le même écran) */
   onNotesPreviewChange?: (notes: string) => void;
   onDiagnosticPreviewChange?: (diagnostic: string) => void;
@@ -45,6 +48,7 @@ export function ConsultationEditor({
   initialNotesMedecin,
   initialDiagnostic,
   headerAction,
+  appointmentContextLabel,
   onNotesPreviewChange,
   onDiagnosticPreviewChange,
   onSaved,
@@ -169,44 +173,59 @@ export function ConsultationEditor({
               après 2 s sans frappe.
             </CardDescription>
           </div>
-          <div className="flex flex-wrap items-center gap-2 justify-end">
-            <Select
-              value={dictationTarget}
-              onValueChange={(v) => setDictationTarget(v as 'notes' | 'diagnostic')}
-            >
-              <SelectTrigger className="w-[200px] h-9 text-xs bg-white border-slate-200">
-                <SelectValue placeholder="Cible" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="notes">Remplir : notes médecin</SelectItem>
-                <SelectItem value="diagnostic">Remplir : diagnostic</SelectItem>
-              </SelectContent>
-            </Select>
-            <VoiceDictation onResult={handleDictationResult} disabled={!appointmentId} />
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              className="gap-1.5"
-              disabled={!appointmentId || saving}
-              onClick={() => void persist(false)}
-            >
-              {saving ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Save className="h-4 w-4" />
-              )}
-              Enregistrer les notes
-            </Button>
-            {headerAction}
+          <div className="flex w-full flex-col items-stretch gap-2 sm:w-auto sm:items-end">
+            {appointmentId && appointmentContextLabel ? (
+              <p className="text-xs font-medium text-slate-500 sm:text-right">
+                Notes rattachées à : {appointmentContextLabel}
+              </p>
+            ) : null}
+            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+              <Select
+                value={dictationTarget}
+                onValueChange={(v) => setDictationTarget(v as 'notes' | 'diagnostic')}
+              >
+                <SelectTrigger className="h-9 w-full border-slate-200 bg-white text-xs sm:w-[200px]">
+                  <SelectValue placeholder="Cible" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="notes">Remplir : notes médecin</SelectItem>
+                  <SelectItem value="diagnostic">Remplir : diagnostic</SelectItem>
+                </SelectContent>
+              </Select>
+              <VoiceDictation onResult={handleDictationResult} disabled={!appointmentId} />
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                className="gap-1.5 bg-blue-600 text-white shadow-sm hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-500 sm:min-w-[168px]"
+                disabled={!appointmentId || saving}
+                onClick={() => void persist(false)}
+              >
+                {saving ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4" />
+                )}
+                Enregistrer les notes
+              </Button>
+              {headerAction}
+            </div>
           </div>
         </div>
       </CardHeader>
       <CardContent className="pt-6 space-y-6">
         {!appointmentId && (
-          <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-            Aucun rendez-vous récent pour attacher ces notes — planifiez un RDV depuis l’agenda.
-          </p>
+          <div className="flex flex-col gap-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-900 sm:flex-row sm:items-center sm:justify-between">
+            <p>
+              Aucun rendez-vous actif ou consultation existante pour attacher ces notes.
+            </p>
+            <Button asChild variant="outline" size="sm" className="border-amber-300 bg-white text-amber-900 hover:bg-amber-100">
+              <Link href="/dashboard/agenda">
+                <CalendarPlus className="h-4 w-4" />
+                Planifier un RDV
+              </Link>
+            </Button>
+          </div>
         )}
         <div className="space-y-2">
           <Label htmlFor="notes-medecin">Notes médecin (compte-rendu / SOAP)</Label>

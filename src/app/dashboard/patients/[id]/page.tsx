@@ -143,6 +143,48 @@ const INVOICE_STATUT_LABEL: Record<string, string> = {
   CANCELLED: 'Annulé',
 }
 
+type PatientAppointmentForNotes = {
+  id: string;
+  date_heure: string;
+  motif: string;
+  statut: string;
+  consultation?: { notes_medecin: string | null; diagnostic: string | null } | null;
+};
+
+function isSameLocalDay(a: Date, b: Date): boolean {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
+}
+
+function pickClinicalNotesAppointment(
+  appointments: PatientAppointmentForNotes[]
+): PatientAppointmentForNotes | null {
+  const sorted = [...appointments].sort(
+    (a, b) => new Date(b.date_heure).getTime() - new Date(a.date_heure).getTime()
+  );
+  const inProgress = sorted.find((a) => a.statut === 'IN_PROGRESS');
+  if (inProgress) return inProgress;
+
+  const today = new Date();
+  const todayClinical = sorted.find((a) => {
+    if (a.statut !== 'WAITING' && a.statut !== 'FINISHED') return false;
+    const appointmentDate = new Date(a.date_heure);
+    return !Number.isNaN(appointmentDate.getTime()) && isSameLocalDay(appointmentDate, today);
+  });
+  if (todayClinical) return todayClinical;
+
+  return (
+    sorted.find(
+      (a) =>
+        Boolean(a.consultation) &&
+        a.statut !== 'CANCELED'
+    ) ?? null
+  );
+}
+
 export default function PatientPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
   const router = useRouter();
@@ -471,14 +513,16 @@ export default function PatientPage({ params }: { params: Promise<{ id: string }
     return <div className="p-8 text-center text-red-500">Dossier introuvable.</div>;
   }
 
-  const primaryAppointment = patient.appointments?.[0] as
-    | {
-        id: string;
-        consultation?: { notes_medecin: string | null; diagnostic: string | null } | null;
-      }
-    | undefined;
-  const initialConsultationNotes = primaryAppointment?.consultation?.notes_medecin ?? '';
-  const initialConsultationDiagnostic = primaryAppointment?.consultation?.diagnostic ?? '';
+  const clinicalNotesAppointment = pickClinicalNotesAppointment(
+    (patient.appointments ?? []) as PatientAppointmentForNotes[]
+  );
+  const initialConsultationNotes = clinicalNotesAppointment?.consultation?.notes_medecin ?? '';
+  const initialConsultationDiagnostic = clinicalNotesAppointment?.consultation?.diagnostic ?? '';
+  const clinicalNotesContextLabel = clinicalNotesAppointment
+    ? `${format(new Date(clinicalNotesAppointment.date_heure), 'dd/MM/yyyy HH:mm', {
+        locale: fr,
+      })} · ${APPOINTMENT_STATUS_LABEL[clinicalNotesAppointment.statut] ?? clinicalNotesAppointment.statut}`
+    : null;
 
   const age = calculateAge(patient.date_naissance);
   const imc = calculateIMC(patient.poids, patient.taille);
@@ -882,9 +926,10 @@ export default function PatientPage({ params }: { params: Promise<{ id: string }
                 onUpdated={refetchPatient}
               />
               <ConsultationEditor
-                appointmentId={primaryAppointment?.id ?? null}
+                appointmentId={clinicalNotesAppointment?.id ?? null}
                 initialNotesMedecin={initialConsultationNotes}
                 initialDiagnostic={initialConsultationDiagnostic}
+                appointmentContextLabel={clinicalNotesContextLabel}
                 onNotesPreviewChange={setNotesForAlerts}
                 onSaved={refetchPatient}
                 headerAction={
