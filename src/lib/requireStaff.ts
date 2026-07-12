@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyJwt } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
 
 export type StaffRole = 'ADMIN' | 'DOCTOR' | 'ASSISTANT';
 
@@ -16,7 +17,7 @@ export function isStaffRole(r: string): r is StaffRole {
   return STAFF_ROLES.includes(r as StaffRole);
 }
 
-/** JWT valide + rôle équipe (messagerie / statut). */
+/** JWT valide + rôle équipe actif relu en base (messagerie / statut). */
 export async function requireStaff(
   request: NextRequest
 ): Promise<{ ok: true; staff: StaffContext } | { ok: false; response: NextResponse }> {
@@ -34,8 +35,27 @@ export async function requireStaff(
       response: NextResponse.json({ error: 'Token invalide' }, { status: 401 }),
     };
   }
-  const role = String(payload.role).toUpperCase();
-  if (!isStaffRole(role)) {
+  const userId = payload.id != null ? String(payload.id) : '';
+  if (!userId) {
+    return {
+      ok: false,
+      response: NextResponse.json({ error: 'Token invalide' }, { status: 401 }),
+    };
+  }
+
+  const staff = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      email: true,
+      nom: true,
+      role: true,
+      isActive: true,
+    },
+  });
+
+  const role = String(staff?.role ?? '').toUpperCase();
+  if (!staff || !staff.isActive || !isStaffRole(role)) {
     return {
       ok: false,
       response: NextResponse.json({ error: 'Accès refusé' }, { status: 403 }),
@@ -44,9 +64,9 @@ export async function requireStaff(
   return {
     ok: true,
     staff: {
-      id: String(payload.id),
-      email: String(payload.email),
-      nom: String(payload.nom ?? ''),
+      id: staff.id,
+      email: staff.email,
+      nom: staff.nom,
       role,
     },
   };

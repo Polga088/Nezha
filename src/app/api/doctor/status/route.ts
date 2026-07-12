@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
 import { verifyJwt } from '@/lib/auth';
 import { getDoctorStatusPayload } from '@/lib/doctor-status-helpers';
 
@@ -14,9 +15,6 @@ export async function GET(request: NextRequest) {
   if (!user) {
     return NextResponse.json({ error: 'Non autorisé' }, { status: 401 });
   }
-  if (String(user.role).toUpperCase() !== 'DOCTOR') {
-    return NextResponse.json({ error: 'Réservé aux médecins' }, { status: 403 });
-  }
 
   const doctorId = user.id != null ? String(user.id) : null;
   if (!doctorId) {
@@ -24,6 +22,15 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    const staff = await prisma.user.findUnique({
+      where: { id: doctorId },
+      select: { role: true, isActive: true },
+    });
+
+    if (!staff || !staff.isActive || String(staff.role).toUpperCase() !== 'DOCTOR') {
+      return NextResponse.json({ error: 'Réservé aux médecins' }, { status: 403 });
+    }
+
     const doctor = await getDoctorStatusPayload(doctorId);
     if (!doctor) {
       return NextResponse.json({ error: 'Médecin introuvable' }, { status: 404 });

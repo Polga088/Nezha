@@ -15,18 +15,26 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Token invalide' }, { status: 401 });
   }
 
-  const id = String(payload.id);
+  const id = payload.id != null ? String(payload.id) : '';
+  if (!id) {
+    return NextResponse.json({ error: 'Token invalide' }, { status: 401 });
+  }
+
   const row = await prisma.user.findUnique({
     where: { id },
-    select: { userStatus: true, isActive: true },
+    select: { email: true, nom: true, role: true, userStatus: true, isActive: true },
   });
+
+  if (!row || !row.isActive) {
+    return NextResponse.json({ error: 'Accès refusé' }, { status: 403 });
+  }
 
   return NextResponse.json({
     id,
-    email: payload.email,
-    role: payload.role,
-    nom: payload.nom,
-    userStatus: row?.userStatus ?? 'OFFLINE',
-    isActive: row?.isActive ?? true,
+    email: row.email,
+    role: row.role,
+    nom: row.nom,
+    userStatus: row.userStatus,
+    isActive: row.isActive,
   });
 }
