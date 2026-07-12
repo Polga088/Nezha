@@ -4,14 +4,8 @@ import { randomUUID } from 'crypto';
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { verifyJwt } from '@/lib/auth';
+import { requireStaff } from '@/lib/requireStaff';
 import type { NextRequest } from 'next/server';
-
-async function getUser(request: NextRequest) {
-  const token = request.cookies.get('auth_token')?.value;
-  if (!token) return null;
-  return await verifyJwt(token);
-}
 
 function sanitizeBaseName(name: string): string {
   const base = path.basename(name).replace(/[^a-zA-Z0-9._-]/g, '_');
@@ -23,8 +17,8 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const user = await getUser(request);
-  if (!user) return NextResponse.json({ error: 'Non autorisé' }, { status: 401 });
+  const auth = await requireStaff(request);
+  if (!auth.ok) return auth.response;
 
   try {
     const { id } = await params;
@@ -56,8 +50,8 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const user = await getUser(request);
-  if (!user) return NextResponse.json({ error: 'Non autorisé' }, { status: 401 });
+  const auth = await requireStaff(request);
+  if (!auth.ok) return auth.response;
 
   try {
     const { id } = await params;
@@ -75,7 +69,8 @@ export async function POST(
       return NextResponse.json({ error: 'Fichier manquant' }, { status: 400 });
     }
 
-    const label = (formData.get('label') as string | null)?.trim() || null;
+    const requestedLabel = (formData.get('label') as string | null)?.trim();
+    const label = requestedLabel || file.name;
 
     const ext = path.extname(file.name).toLowerCase();
     const safeBase = sanitizeBaseName(path.basename(file.name, ext));
@@ -94,10 +89,10 @@ export async function POST(
     const doc = await prisma.patientDocument.create({
       data: {
         patient_id: id,
-        filename: file.name,
+        filename: storedName,
         mimeType: file.type || null,
         file_url: fileUrl,
-        label: label || null,
+        label,
       },
     });
 

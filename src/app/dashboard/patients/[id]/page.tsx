@@ -8,6 +8,8 @@ import {
   Activity, AlertTriangle, FileBadge, History, MapPin, Phone, Mail, File as FileIcon, Calendar, Stethoscope, TrendingUp, CalendarPlus, ShieldCheck,
   Receipt,
   Paperclip,
+  Pencil,
+  Trash2,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -129,6 +131,10 @@ function isPatientPdfDoc(doc: { mimeType: string | null; filename: string }) {
   const m = (doc.mimeType ?? '').toLowerCase();
   if (m === 'application/pdf') return true;
   return doc.filename.toLowerCase().endsWith('.pdf');
+}
+
+function patientDocumentDisplayName(doc: { filename: string; label: string | null }) {
+  return doc.label?.trim() || doc.filename;
 }
 
 const INVOICE_MODE_LABEL: Record<string, string> = {
@@ -359,6 +365,9 @@ export default function PatientPage({ params }: { params: Promise<{ id: string }
 
       const fd = new FormData();
       fd.append('file', file);
+      const displayName =
+        window.prompt('Nom affiché pour ce document', file.name)?.trim() || file.name;
+      fd.append('label', displayName);
 
       try {
         const res = await fetch(`/api/patients/${patient.id}/documents`, {
@@ -380,10 +389,81 @@ export default function PatientPage({ params }: { params: Promise<{ id: string }
         }
         const doc = JSON.parse(raw) as (typeof patientUploadedDocs)[0];
         setPatientUploadedDocs((prev) => [doc, ...prev]);
-        toast.success(`Document importé : ${file.name}`);
+        toast.success(`Document importé : ${doc.label ?? file.name}`);
       } catch (err) {
         console.error(err);
         toast.error('Échec de l’import');
+      }
+    },
+    [patient?.id]
+  );
+
+  const handleRenameDocument = useCallback(
+    async (doc: (typeof patientUploadedDocs)[0]) => {
+      if (!patient?.id) return;
+      const currentName = patientDocumentDisplayName(doc);
+      const nextName = window.prompt('Nouveau nom du document', currentName)?.trim();
+      if (!nextName || nextName === currentName) return;
+
+      try {
+        const res = await fetch(`/api/patients/${patient.id}/documents/${doc.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ label: nextName }),
+        });
+        const raw = await res.text();
+        if (!res.ok) {
+          let msg = raw;
+          try {
+            const j = JSON.parse(raw) as { error?: string };
+            if (j.error) msg = j.error;
+          } catch {
+            /* brut */
+          }
+          toast.error(msg);
+          return;
+        }
+        const updated = JSON.parse(raw) as (typeof patientUploadedDocs)[0];
+        setPatientUploadedDocs((prev) =>
+          prev.map((item) => (item.id === updated.id ? updated : item))
+        );
+        toast.success('Document renommé');
+      } catch {
+        toast.error('Renommage impossible');
+      }
+    },
+    [patient?.id]
+  );
+
+  const handleDeleteDocument = useCallback(
+    async (doc: (typeof patientUploadedDocs)[0]) => {
+      if (!patient?.id) return;
+      const displayName = patientDocumentDisplayName(doc);
+      const confirmed = window.confirm(`Supprimer définitivement « ${displayName} » ?`);
+      if (!confirmed) return;
+
+      try {
+        const res = await fetch(`/api/patients/${patient.id}/documents/${doc.id}`, {
+          method: 'DELETE',
+          credentials: 'same-origin',
+        });
+        if (!res.ok && res.status !== 204) {
+          const raw = await res.text();
+          let msg = raw;
+          try {
+            const j = JSON.parse(raw) as { error?: string };
+            if (j.error) msg = j.error;
+          } catch {
+            /* brut */
+          }
+          toast.error(msg);
+          return;
+        }
+        setPatientUploadedDocs((prev) => prev.filter((item) => item.id !== doc.id));
+        toast.success('Document supprimé');
+      } catch {
+        toast.error('Suppression impossible');
       }
     },
     [patient?.id]
@@ -1245,6 +1325,7 @@ export default function PatientPage({ params }: { params: Promise<{ id: string }
                     <div className="grid sm:grid-cols-2 gap-3">
                       {patientUploadedDocs.map((doc) => {
                         const fileHref = patientDocumentApiUrl(doc.id);
+                        const displayName = patientDocumentDisplayName(doc);
                         return (
                         <div
                           key={doc.id}
@@ -1259,7 +1340,7 @@ export default function PatientPage({ params }: { params: Promise<{ id: string }
                             >
                               <img
                                 src={fileHref}
-                                alt={doc.filename}
+                                alt={displayName}
                                 className="w-full max-h-40 object-contain bg-slate-50"
                               />
                             </a>
@@ -1268,7 +1349,7 @@ export default function PatientPage({ params }: { params: Promise<{ id: string }
                               <embed
                                 src={fileHref}
                                 type="application/pdf"
-                                title={doc.filename}
+                                title={displayName}
                                 className="w-full h-full min-h-[10rem]"
                               />
                             </div>
@@ -1282,17 +1363,41 @@ export default function PatientPage({ params }: { params: Promise<{ id: string }
                                 rel="noopener noreferrer"
                                 className="text-sm font-medium text-blue-700 hover:underline break-words"
                               >
-                                {doc.filename}
+                                {displayName}
                               </a>
                             ) : (
                               <span className="text-sm font-medium text-slate-800">
-                                {doc.filename}
+                                {displayName}
                               </span>
                             )}
                           </div>
-                          <p className="text-xs text-slate-500">
-                            {new Date(doc.createdAt).toLocaleString('fr-FR')}
-                          </p>
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                            <p className="text-xs text-slate-500">
+                              {new Date(doc.createdAt).toLocaleString('fr-FR')}
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="h-8 border-slate-200 bg-white text-slate-700"
+                                onClick={() => void handleRenameDocument(doc)}
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                                Renommer
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="h-8 border-rose-200 bg-white text-rose-700 hover:bg-rose-50"
+                                onClick={() => void handleDeleteDocument(doc)}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                                Supprimer
+                              </Button>
+                            </div>
+                          </div>
                         </div>
                         );
                       })}

@@ -40,7 +40,11 @@ export function ImageUpload({ patientId, label, className, onUploaded }: ImageUp
     try {
       const fd = new FormData();
       fd.append('file', file);
-      if (label?.trim()) fd.append('label', label.trim());
+      const displayName =
+        label?.trim() ||
+        window.prompt('Nom affiché pour cette image', file.name)?.trim() ||
+        file.name;
+      fd.append('label', displayName);
 
       const res = await fetch(`/api/patients/${patientId}/documents`, {
         method: 'POST',
@@ -61,7 +65,7 @@ export function ImageUpload({ patientId, label, className, onUploaded }: ImageUp
       }
       const doc = JSON.parse(raw) as Parameters<NonNullable<ImageUploadProps['onUploaded']>>[0];
       onUploaded?.(doc);
-      toast.success(`Photo enregistrée : ${file.name}`);
+      toast.success(`Photo enregistrée : ${doc.label ?? file.name}`);
     } catch {
       toast.error('Échec de l’envoi');
     } finally {

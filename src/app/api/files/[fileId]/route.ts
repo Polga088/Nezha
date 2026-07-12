@@ -5,13 +5,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 import { prisma } from '@/lib/prisma';
-import { verifyJwt } from '@/lib/auth';
-
-async function getUser(request: NextRequest) {
-  const token = request.cookies.get('auth_token')?.value;
-  if (!token) return null;
-  return await verifyJwt(token);
-}
+import { requireStaff } from '@/lib/requireStaff';
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -58,15 +52,8 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ fileId: string }> }
 ) {
-  const user = await getUser(request);
-  if (!user) {
-    return NextResponse.json({ error: 'Non autorisé' }, { status: 401 });
-  }
-
-  const role = String(user.role).toUpperCase();
-  if (role !== 'ADMIN' && role !== 'DOCTOR' && role !== 'ASSISTANT') {
-    return NextResponse.json({ error: 'Accès refusé' }, { status: 403 });
-  }
+  const auth = await requireStaff(request);
+  if (!auth.ok) return auth.response;
 
   const { fileId: rawId } = await params;
   const fileId = normalizeFileId(rawId);
@@ -80,6 +67,7 @@ export async function GET(
       select: {
         id: true,
         filename: true,
+        label: true,
         mimeType: true,
         file_url: true,
         patient_id: true,
@@ -107,7 +95,8 @@ export async function GET(
         ? doc.mimeType.trim()
         : mimeFromName(doc.filename);
 
-    const asciiName = doc.filename.replace(/[^\x20-\x7E]/g, '_');
+    const displayName = doc.label?.trim() || doc.filename;
+    const asciiName = displayName.replace(/[^\x20-\x7E]/g, '_');
     const headers = new Headers();
     headers.set('Content-Type', contentType);
     headers.set('Content-Length', String(buffer.length));
