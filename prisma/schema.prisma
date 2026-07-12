@@ -61,6 +61,11 @@ enum DocumentType {
   EXTERNAL_RESULT  // Résultat externe
 }
 
+enum ConsultationSource {
+  MANUAL
+  OUT_OF_APPOINTMENT
+}
+
 enum Sexe {
   MASCULIN
   FEMININ
@@ -196,6 +201,7 @@ model User {
   notifications        Notification[]
   prescriptionsAsDoctor Prescription[] @relation("PrescriptionDoctor")
   invoicesCreated       Invoice[]       @relation("InvoiceCreatedBy")
+  consultationsAuthored Consultation[]  @relation("ConsultationAuthor")
   /// Horaires hebdomadaires d’agenda (une ligne par médecin, upsert via /api/doctor/availability).
   doctorAvailability    Availability?
 
@@ -346,9 +352,13 @@ model Consultation {
   battementCoeur     Int?
   diagnostic         String?  @db.Text
   notes              String?  @db.Text
+  source             ConsultationSource @default(MANUAL)
+  authorId           String?  @map("author_id")
+  author             User?    @relation("ConsultationAuthor", fields: [authorId], references: [id], onDelete: SetNull)
   date               DateTime @default(now())
 
   @@index([patientId, date])
+  @@index([authorId])
 }
 
 /// Mesure anthropométrique datée (courbe d’évolution poids & IMC).

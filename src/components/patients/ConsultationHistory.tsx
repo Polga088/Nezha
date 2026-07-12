@@ -16,6 +16,8 @@ export type PatientConsultationRow = {
   battementCoeur: number | null;
   diagnostic: string | null;
   notes: string | null;
+  source?: 'MANUAL' | 'OUT_OF_APPOINTMENT';
+  author?: { id: string; nom: string; role: string } | null;
   date: string;
 };
 
@@ -72,6 +74,16 @@ export function ConsultationHistory({ consultations, headerAction }: Props) {
                 >
                   {format(new Date(c.date), 'd MMM yyyy · HH:mm', { locale: fr })}
                 </time>
+                {c.source === 'OUT_OF_APPOINTMENT' ? (
+                  <div className="mt-1 flex flex-wrap items-center gap-2">
+                    <Badge variant="outline" className="border-blue-200 bg-blue-50 text-blue-800">
+                      Note ajoutée hors consultation
+                    </Badge>
+                    {c.author?.nom ? (
+                      <span className="text-xs text-slate-500">Auteur : {c.author.nom}</span>
+                    ) : null}
+                  </div>
+                ) : null}
                 <div className="mt-2 flex flex-wrap gap-2">
                   {c.glycemie != null ? (
                     <Badge

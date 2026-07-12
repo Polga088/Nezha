@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyJwt } from '@/lib/auth';
+import { requireStaff } from '@/lib/requireStaff';
 
 async function getUser(request: NextRequest) {
   const token = request.cookies.get('auth_token')?.value;
@@ -45,6 +46,15 @@ export async function GET(
     const rows = await prisma.consultation.findMany({
       where: { patientId: id },
       orderBy: { date: 'asc' },
+      include: {
+        author: {
+          select: {
+            id: true,
+            nom: true,
+            role: true,
+          },
+        },
+      },
     });
 
     return NextResponse.json(rows);
@@ -58,8 +68,11 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const user = await getUser(request);
-  if (!user) return NextResponse.json({ error: 'Non autorisé' }, { status: 401 });
+  const auth = await requireStaff(request);
+  if (!auth.ok) return auth.response;
+  if (auth.staff.role !== 'DOCTOR' && auth.staff.role !== 'ADMIN') {
+    return NextResponse.json({ error: 'Accès refusé' }, { status: 403 });
+  }
 
   try {
     const { id } = await params;
@@ -87,6 +100,8 @@ export async function POST(
       body.notes === undefined || body.notes === null
         ? null
         : String(body.notes).trim() || null;
+    const source =
+      body.source === 'OUT_OF_APPOINTMENT' ? 'OUT_OF_APPOINTMENT' : 'MANUAL';
 
     if (tensionArterielle && !TA_REGEX.test(tensionArterielle)) {
       return NextResponse.json(
@@ -137,7 +152,18 @@ export async function POST(
         battementCoeur,
         diagnostic,
         notes,
+        source,
+        authorId: auth.staff.id,
         date,
+      },
+      include: {
+        author: {
+          select: {
+            id: true,
+            nom: true,
+            role: true,
+          },
+        },
       },
     });
 

@@ -1,8 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import Link from 'next/link';
-import { Activity, CalendarPlus, Loader2, Save } from 'lucide-react';
+import { Activity, Loader2, Save } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -21,6 +20,8 @@ import { cn } from '@/lib/utils';
 const DEBOUNCE_MS = 2000;
 
 export type ConsultationEditorProps = {
+  /** Patient cible pour les notes hors rendez-vous. */
+  patientId: string;
   /** RDV cible (dernier RDV du patient, etc.). Sans id, pas de sauvegarde API. */
   appointmentId: string | null;
   /** Valeurs initiales depuis la consultation en base */
@@ -44,6 +45,7 @@ export type ConsultationEditorProps = {
  * Sauvegarde automatique 2 s après la fin de frappe, ou bouton « Enregistrer les notes ».
  */
 export function ConsultationEditor({
+  patientId,
   appointmentId,
   initialNotesMedecin,
   initialDiagnostic,
@@ -60,6 +62,7 @@ export function ConsultationEditor({
   const [saving, setSaving] = useState(false);
 
   const lastSavedRef = useRef({ notes: initialNotesMedecin, diagnostic: initialDiagnostic });
+  const hasDraftContent = notes.trim().length > 0 || diagnostic.trim().length > 0;
 
   useEffect(() => {
     setNotes(initialNotesMedecin);
@@ -80,21 +83,34 @@ export function ConsultationEditor({
 
   const persist = useCallback(
     async (silent?: boolean) => {
-      if (!appointmentId) {
-        if (!silent) toast.error('Aucun rendez-vous associé — créez un RDV depuis l’agenda.');
+      if (!hasDraftContent) {
+        if (!silent) toast.error('Renseignez une note ou un diagnostic.');
         return false;
       }
       setSaving(true);
       try {
-        const res = await fetch(`/api/appointments/${appointmentId}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'same-origin',
-          body: JSON.stringify({
-            notes_medecin: notes,
-            diagnostic,
-          }),
-        });
+        const res =
+          appointmentId ?
+            await fetch(`/api/appointments/${appointmentId}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'same-origin',
+              body: JSON.stringify({
+                notes_medecin: notes,
+                diagnostic,
+              }),
+            })
+          : await fetch(`/api/patients/${patientId}/consultations`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'same-origin',
+              body: JSON.stringify({
+                notes,
+                diagnostic,
+                source: 'OUT_OF_APPOINTMENT',
+                date: new Date().toISOString(),
+              }),
+            });
         const raw = await res.text();
         if (!res.ok) {
           let msg = raw;
@@ -110,8 +126,8 @@ export function ConsultationEditor({
         lastSavedRef.current = { notes, diagnostic };
         if (!silent) {
           toast.success('Notes enregistrées');
-          onSaved?.();
         }
+        onSaved?.();
         return true;
       } catch {
         toast.error('Erreur réseau lors de l’enregistrement');
@@ -120,11 +136,11 @@ export function ConsultationEditor({
         setSaving(false);
       }
     },
-    [appointmentId, notes, diagnostic, onSaved]
+    [appointmentId, patientId, notes, diagnostic, hasDraftContent, onSaved]
   );
 
   useEffect(() => {
-    if (!appointmentId) return;
+    if (!hasDraftContent) return;
     if (
       notes === lastSavedRef.current.notes &&
       diagnostic === lastSavedRef.current.diagnostic
@@ -135,7 +151,7 @@ export function ConsultationEditor({
       void persist(true);
     }, DEBOUNCE_MS);
     return () => clearTimeout(t);
-  }, [notes, diagnostic, appointmentId, persist]);
+  }, [notes, diagnostic, hasDraftContent, persist]);
 
   const handleNotesChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const v = e.target.value;
@@ -174,9 +190,9 @@ export function ConsultationEditor({
             </CardDescription>
           </div>
           <div className="flex w-full flex-col items-stretch gap-2 sm:w-auto sm:items-end">
-            {appointmentId && appointmentContextLabel ? (
+            {appointmentContextLabel ? (
               <p className="text-xs font-medium text-slate-500 sm:text-right">
-                Notes rattachées à : {appointmentContextLabel}
+                {appointmentContextLabel}
               </p>
             ) : null}
             <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
@@ -192,13 +208,13 @@ export function ConsultationEditor({
                   <SelectItem value="diagnostic">Remplir : diagnostic</SelectItem>
                 </SelectContent>
               </Select>
-              <VoiceDictation onResult={handleDictationResult} disabled={!appointmentId} />
+              <VoiceDictation onResult={handleDictationResult} disabled={saving} />
               <Button
                 type="button"
                 variant="secondary"
                 size="sm"
                 className="gap-1.5 bg-blue-600 text-white shadow-sm hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-500 sm:min-w-[168px]"
-                disabled={!appointmentId || saving}
+                disabled={!hasDraftContent || saving}
                 onClick={() => void persist(false)}
               >
                 {saving ? (
@@ -215,16 +231,10 @@ export function ConsultationEditor({
       </CardHeader>
       <CardContent className="pt-6 space-y-6">
         {!appointmentId && (
-          <div className="flex flex-col gap-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-900 sm:flex-row sm:items-center sm:justify-between">
+          <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-3 text-sm text-blue-900">
             <p>
-              Aucun rendez-vous actif ou consultation existante pour attacher ces notes.
+              Aucun rendez-vous actif — cette note sera enregistrée directement dans le dossier patient.
             </p>
-            <Button asChild variant="outline" size="sm" className="border-amber-300 bg-white text-amber-900 hover:bg-amber-100">
-              <Link href="/dashboard/agenda">
-                <CalendarPlus className="h-4 w-4" />
-                Planifier un RDV
-              </Link>
-            </Button>
           </div>
         )}
         <div className="space-y-2">

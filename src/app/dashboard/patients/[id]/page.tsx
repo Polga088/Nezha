@@ -596,13 +596,26 @@ export default function PatientPage({ params }: { params: Promise<{ id: string }
   const clinicalNotesAppointment = pickClinicalNotesAppointment(
     (patient.appointments ?? []) as PatientAppointmentForNotes[]
   );
-  const initialConsultationNotes = clinicalNotesAppointment?.consultation?.notes_medecin ?? '';
-  const initialConsultationDiagnostic = clinicalNotesAppointment?.consultation?.diagnostic ?? '';
+  const latestStandaloneClinicalNote = [...consultations]
+    .filter((c) => c.source === 'OUT_OF_APPOINTMENT' && (c.notes?.trim() || c.diagnostic?.trim()))
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+  const initialConsultationNotes =
+    clinicalNotesAppointment?.consultation?.notes_medecin ??
+    latestStandaloneClinicalNote?.notes ??
+    '';
+  const initialConsultationDiagnostic =
+    clinicalNotesAppointment?.consultation?.diagnostic ??
+    latestStandaloneClinicalNote?.diagnostic ??
+    '';
   const clinicalNotesContextLabel = clinicalNotesAppointment
-    ? `${format(new Date(clinicalNotesAppointment.date_heure), 'dd/MM/yyyy HH:mm', {
+    ? `Liée au rendez-vous du ${format(new Date(clinicalNotesAppointment.date_heure), 'dd/MM/yyyy HH:mm', {
         locale: fr,
       })} · ${APPOINTMENT_STATUS_LABEL[clinicalNotesAppointment.statut] ?? clinicalNotesAppointment.statut}`
-    : null;
+    : latestStandaloneClinicalNote
+      ? `Note hors consultation ajoutée le ${format(new Date(latestStandaloneClinicalNote.date), 'dd/MM/yyyy HH:mm', {
+          locale: fr,
+        })}`
+      : 'Nouvelle note hors consultation';
 
   const age = calculateAge(patient.date_naissance);
   const imc = calculateIMC(patient.poids, patient.taille);
@@ -1006,6 +1019,7 @@ export default function PatientPage({ params }: { params: Promise<{ id: string }
                 onUpdated={refetchPatient}
               />
               <ConsultationEditor
+                patientId={patient.id}
                 appointmentId={clinicalNotesAppointment?.id ?? null}
                 initialNotesMedecin={initialConsultationNotes}
                 initialDiagnostic={initialConsultationDiagnostic}
