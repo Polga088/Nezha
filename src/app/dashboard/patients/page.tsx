@@ -1,7 +1,19 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { Search, Plus, User, MoreHorizontal, FileText, Edit, Trash2, Download, Upload, ShieldCheck, FileDown } from 'lucide-react';
+import { useMemo, useState, useEffect, useRef, useCallback } from 'react';
+import {
+  Search,
+  Plus,
+  User,
+  MoreHorizontal,
+  FileText,
+  Edit,
+  Trash2,
+  Download,
+  Upload,
+  ShieldCheck,
+  FileDown,
+} from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { CreatePatientModal } from '@/components/patients/CreatePatientModal';
@@ -34,6 +46,34 @@ import { hasDeclaredAssurance } from '@/lib/assurance-types';
 
 type PatientRow = PatientForEdit;
 
+type ImportReportRow = {
+  line: number;
+  nom: string | null;
+  prenom: string | null;
+  result: 'CREATED' | 'UPDATED' | 'SKIPPED' | 'REJECTED' | 'WARNING';
+  field: string | null;
+  value: string | null;
+  message: string;
+};
+
+type ImportSummary = {
+  analyzed: number;
+  created: number;
+  updated: number;
+  ignored: number;
+  rejected: number;
+  warnings: number;
+};
+
+type ImportResponse = {
+  message?: string;
+  summary?: ImportSummary;
+  reportRows?: ImportReportRow[];
+  reportCsv?: string;
+  error?: string;
+  errors?: string[];
+};
+
 /** En-têtes attendues par POST /api/patients/import (ligne vide sous l’en-tête). */
 const PATIENT_IMPORT_CSV_HEADERS =
   'nom,prenom,date_naissance,cin,sexe,tel,email,adresse,groupeSanguin,taille,poids,assuranceType,matriculeAssurance';
@@ -48,6 +88,9 @@ export default function PatientsPage() {
   const [loading, setLoading] = useState(true);
   const [importing, setImporting] = useState(false);
   const importInputRef = useRef<HTMLInputElement>(null);
+  const [importMode, setImportMode] = useState<'SKIP' | 'UPDATE' | 'CREATE_ONLY'>('SKIP');
+  const [importResult, setImportResult] = useState<ImportResponse | null>(null);
+  const [reportPage, setReportPage] = useState(1);
 
   /** Valeur envoyée à l’API (`?q=`) après pause de saisie (debounce). */
   const [debouncedQuery, setDebouncedQuery] = useState('');
@@ -159,12 +202,13 @@ export default function PatientsPage() {
     try {
       const fd = new FormData();
       fd.append('file', file);
+      fd.append('mode', importMode);
       const res = await fetch('/api/patients/import', { method: 'POST', body: fd });
       const ct = res.headers.get('content-type') ?? '';
       if (!ct.includes('application/json')) {
         throw new Error('Réponse serveur invalide');
       }
-      const data = await res.json();
+      const data = (await res.json()) as ImportResponse;
       if (!res.ok) {
         const msg = typeof data.error === 'string' ? data.error : 'Import impossible';
         toast.error(msg);
@@ -176,6 +220,8 @@ export default function PatientsPage() {
         }
         return;
       }
+      setImportResult(data);
+      setReportPage(1);
       toast.success(data.message ?? 'Import terminé');
       if (Array.isArray(data.errors) && data.errors.length > 0) {
         toast.message('Lignes non importées', {
@@ -190,6 +236,27 @@ export default function PatientsPage() {
     } finally {
       setImporting(false);
     }
+  };
+
+  const reportRows = importResult?.reportRows ?? [];
+  const reportSummary = importResult?.summary ?? null;
+  const totalPages = Math.max(1, Math.ceil(reportRows.length / 20));
+  const currentPage = Math.min(reportPage, totalPages);
+  const pageRows = useMemo(
+    () => reportRows.slice((currentPage - 1) * 20, currentPage * 20),
+    [currentPage, reportRows]
+  );
+
+  const handleDownloadReportCsv = () => {
+    if (!importResult?.reportCsv) return;
+    const blob = new Blob([importResult.reportCsv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `rapport-import-patients-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success('Rapport CSV téléchargé');
   };
 
   return (
@@ -231,12 +298,22 @@ export default function PatientsPage() {
             <input
               ref={importInputRef}
               type="file"
-              accept=".csv,text/csv"
+              accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
               className="sr-only"
               aria-hidden
               tabIndex={-1}
               onChange={handleImportCsv}
             />
+            <select
+              aria-label="Mode d’import"
+              className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 shadow-sm"
+              value={importMode}
+              onChange={(event) => setImportMode(event.target.value as 'SKIP' | 'UPDATE' | 'CREATE_ONLY')}
+            >
+              <option value="SKIP">SKIP</option>
+              <option value="UPDATE">UPDATE</option>
+              <option value="CREATE_ONLY">CREATE_ONLY</option>
+            </select>
             <Button type="button" variant="outline" className="gap-2" onClick={handleExportCsv}>
               <Download size={16} aria-hidden />
               Export
@@ -258,6 +335,118 @@ export default function PatientsPage() {
           </>
         }
       >
+        {reportSummary ? (
+          <div className="mb-6 space-y-4 rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
+            <div className="grid gap-3 md:grid-cols-6">
+              <div className="rounded-xl bg-white p-3 shadow-sm">
+                <div className="text-xs uppercase tracking-wide text-slate-500">Analysés</div>
+                <div className="mt-1 text-2xl font-semibold text-slate-900">{reportSummary.analyzed}</div>
+              </div>
+              <div className="rounded-xl bg-white p-3 shadow-sm">
+                <div className="text-xs uppercase tracking-wide text-slate-500">Créés</div>
+                <div className="mt-1 text-2xl font-semibold text-emerald-600">{reportSummary.created}</div>
+              </div>
+              <div className="rounded-xl bg-white p-3 shadow-sm">
+                <div className="text-xs uppercase tracking-wide text-slate-500">Mis à jour</div>
+                <div className="mt-1 text-2xl font-semibold text-blue-600">{reportSummary.updated}</div>
+              </div>
+              <div className="rounded-xl bg-white p-3 shadow-sm">
+                <div className="text-xs uppercase tracking-wide text-slate-500">Ignorés</div>
+                <div className="mt-1 text-2xl font-semibold text-amber-600">{reportSummary.ignored}</div>
+              </div>
+              <div className="rounded-xl bg-white p-3 shadow-sm">
+                <div className="text-xs uppercase tracking-wide text-slate-500">Rejetés</div>
+                <div className="mt-1 text-2xl font-semibold text-red-600">{reportSummary.rejected}</div>
+              </div>
+              <div className="rounded-xl bg-white p-3 shadow-sm">
+                <div className="text-xs uppercase tracking-wide text-slate-500">Avertissements</div>
+                <div className="mt-1 text-2xl font-semibold text-violet-600">{reportSummary.warnings}</div>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="text-sm font-medium text-slate-600">
+                {importResult?.message ?? 'Import terminé'}
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                className="gap-2"
+                onClick={handleDownloadReportCsv}
+              >
+                <FileDown size={16} aria-hidden />
+                Export rapport CSV
+              </Button>
+            </div>
+            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+              <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+                <div className="text-sm font-semibold text-slate-900">Rapport d’import</div>
+                <div className="text-sm text-slate-500">
+                  {reportRows.length} ligne{reportRows.length > 1 ? 's' : ''}
+                </div>
+              </div>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead>Ligne</TableHead>
+                      <TableHead>Nom</TableHead>
+                      <TableHead>Prénom</TableHead>
+                      <TableHead>Résultat</TableHead>
+                      <TableHead>Champ</TableHead>
+                      <TableHead>Valeur</TableHead>
+                      <TableHead>Message</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {pageRows.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={7} className="h-20 text-center text-slate-400">
+                          Aucun rapport à afficher
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      pageRows.map((row) => (
+                        <TableRow key={`${row.line}-${row.field ?? 'row'}-${row.message}`}>
+                          <TableCell>{row.line}</TableCell>
+                          <TableCell>{row.nom ?? '—'}</TableCell>
+                          <TableCell>{row.prenom ?? '—'}</TableCell>
+                          <TableCell>{row.result}</TableCell>
+                          <TableCell>{row.field ?? '—'}</TableCell>
+                          <TableCell className="max-w-[220px] truncate">{row.value ?? '—'}</TableCell>
+                          <TableCell className="max-w-[420px]">{row.message}</TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+              <div className="flex items-center justify-between gap-3 border-t border-slate-200 px-4 py-3">
+                <div className="text-sm text-slate-500">
+                  Page {currentPage} / {totalPages}
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setReportPage((value) => Math.max(1, value - 1))}
+                    disabled={currentPage <= 1}
+                  >
+                    Précédent
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setReportPage((value) => Math.min(totalPages, value + 1))}
+                    disabled={currentPage >= totalPages}
+                  >
+                    Suivant
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
