@@ -129,11 +129,7 @@ export async function POST(
     }
 
     try {
-      await syncDoctorStatusOnConsultation(appt.doctor_id, 'close');
-      const doc = await prisma.user.findUnique({
-        where: { id: appt.doctor_id },
-        select: { userStatus: true, userStatusChangedAt: true },
-      });
+      const doc = await syncDoctorStatusOnConsultation(appt.doctor_id, 'close');
       if (doc) {
         await broadcastUserStatus({
           userId: appt.doctor_id,

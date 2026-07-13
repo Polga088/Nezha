@@ -46,7 +46,7 @@ export async function GET(
     if (!appointment) return NextResponse.json({ error: 'Rendez-vous introuvable' }, { status: 404 });
 
     return NextResponse.json(appointment);
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Erreur' }, { status: 500 });
   }
 }
@@ -210,11 +210,7 @@ export async function PUT(
 
     if (updated.statut === 'IN_PROGRESS' && existing.statut !== 'IN_PROGRESS') {
       try {
-        await syncDoctorStatusOnConsultation(updated.doctor_id, 'start');
-        const doc = await prisma.user.findUnique({
-          where: { id: updated.doctor_id },
-          select: { userStatus: true, userStatusChangedAt: true },
-        });
+        const doc = await syncDoctorStatusOnConsultation(updated.doctor_id, 'start');
         if (doc) {
           await broadcastUserStatus({
             userId: updated.doctor_id,
@@ -228,7 +224,7 @@ export async function PUT(
     }
 
     return NextResponse.json(updated);
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Erreur lors de la modification' }, { status: 500 });
   }
 }
@@ -315,7 +311,7 @@ export async function DELETE(
     });
 
     return NextResponse.json({ message: 'Rendez-vous annulé', appointment: cancelled });
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Erreur lors de l\'annulation' }, { status: 500 });
   }
 }

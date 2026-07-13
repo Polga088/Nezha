@@ -93,6 +93,11 @@ enum UserStatus {
   OFFLINE
 }
 
+enum StatusSource {
+  MANUAL
+  CONSULTATION
+}
+
 /// Catégories de charges (dépenses cabinet).
 enum ExpenseCategory {
   LOYER
@@ -190,6 +195,8 @@ model User {
   specialite    String?
   isActive      Boolean       @default(true)
   userStatus    UserStatus    @default(OFFLINE)
+  manualStatus  UserStatus?
+  statusSource  StatusSource  @default(MANUAL)
   /// Dernier changement de pastille (salle d’attente / visibilité assistant).
   userStatusChangedAt DateTime @default(now())
 

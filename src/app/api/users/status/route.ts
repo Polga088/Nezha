@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { broadcastUserStatus } from '@/lib/pusher-server';
 import { verifyJwt } from '@/lib/auth';
-import { normalizeUserStatusInput } from '@/lib/user-status';
+import { applyManualDoctorStatus } from '@/lib/doctor-status-helpers';
+import { normalizeManualDoctorStatusInput, normalizeUserStatusInput } from '@/lib/user-status';
 
 function logRouteError(route: string, e: unknown) {
   console.error(`[${route}] erreur:`, e);
@@ -42,34 +43,44 @@ export async function PATCH(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const requestedStatus = normalizeUserStatusInput(body.userStatus);
+    const requestedStatus =
+      role === 'DOCTOR'
+        ? normalizeManualDoctorStatusInput(body.userStatus)
+        : normalizeUserStatusInput(body.userStatus);
     if (!requestedStatus) {
       return NextResponse.json(
         {
           error:
-            'userStatus requis : AVAILABLE | BUSY | IN_CONSULTATION | ON_BREAK | ABSENT | AWAY | DONE_TODAY | OFFLINE',
+            role === 'DOCTOR'
+              ? 'userStatus requis : AVAILABLE | BUSY | ON_BREAK | ABSENT | AWAY | DONE_TODAY'
+              : 'userStatus requis : AVAILABLE | BUSY | IN_CONSULTATION | ON_BREAK | ABSENT | AWAY | DONE_TODAY | OFFLINE',
         },
         { status: 400 }
       );
     }
 
-    const now = new Date();
+    const user =
+      role === 'DOCTOR'
+        ? await applyManualDoctorStatus(staff.id, requestedStatus)
+        : await prisma.user.update({
+            where: { id: staff.id },
+            data: {
+              userStatus: requestedStatus,
+              userStatusChangedAt: new Date(),
+            },
+            select: {
+              id: true,
+              nom: true,
+              email: true,
+              role: true,
+              userStatus: true,
+              userStatusChangedAt: true,
+            },
+          });
 
-    const user = await prisma.user.update({
-      where: { id: staff.id },
-      data: {
-        userStatus: requestedStatus,
-        userStatusChangedAt: now,
-      },
-      select: {
-        id: true,
-        nom: true,
-        email: true,
-        role: true,
-        userStatus: true,
-        userStatusChangedAt: true,
-      },
-    });
+    if (!user) {
+      return NextResponse.json({ error: 'Utilisateur introuvable' }, { status: 404 });
+    }
 
     try {
       await broadcastUserStatus({

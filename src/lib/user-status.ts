@@ -30,15 +30,26 @@ export const USER_STATUS_LABELS: Record<UserStatusType, string> = {
   OFFLINE: 'Hors ligne',
 };
 
-/** Statuts proposés au médecin pour changement rapide (hors OFFLINE auto). */
+/** Statuts manuels proposés au médecin pour changement rapide. */
 export const DOCTOR_QUICK_STATUSES: UserStatusType[] = [
   'AVAILABLE',
   'BUSY',
-  'IN_CONSULTATION',
   'ON_BREAK',
   'AWAY',
   'DONE_TODAY',
 ];
+
+export const MANUAL_DOCTOR_STATUSES: UserStatusType[] = [
+  'AVAILABLE',
+  'BUSY',
+  'ON_BREAK',
+  'AWAY',
+  'DONE_TODAY',
+];
+
+export function isManualDoctorStatus(s: unknown): s is Exclude<UserStatusType, 'IN_CONSULTATION' | 'OFFLINE'> {
+  return typeof s === 'string' && MANUAL_DOCTOR_STATUSES.includes(s as UserStatusType);
+}
 
 export function isUserStatus(s: unknown): s is UserStatusType {
   return typeof s === 'string' && USER_STATUS_VALUES.includes(s as UserStatusType);
@@ -47,6 +58,11 @@ export function isUserStatus(s: unknown): s is UserStatusType {
 export function normalizeUserStatusInput(s: unknown): UserStatusType | null {
   if (s === 'ABSENT') return 'AWAY';
   return isUserStatus(s) ? s : null;
+}
+
+export function normalizeManualDoctorStatusInput(s: unknown): Exclude<UserStatusType, 'IN_CONSULTATION' | 'OFFLINE'> | null {
+  const normalized = normalizeUserStatusInput(s);
+  return normalized && isManualDoctorStatus(normalized) ? normalized : null;
 }
 
 export function canReceivePatient(status: UserStatusType): boolean {

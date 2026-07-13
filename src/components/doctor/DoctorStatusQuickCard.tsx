@@ -81,12 +81,6 @@ export function DoctorStatusQuickCard({ className }: { className?: string }) {
   }, [useRealtime, me?.id, mutate]);
 
   const patchStatus = async (userStatus: UserStatusType) => {
-    if (doctor?.inConsultation && userStatus !== 'IN_CONSULTATION') {
-      toast.message('Consultation en cours', {
-        description: 'Clôturez la consultation avant de changer de statut.',
-      });
-      return;
-    }
     setPatching(userStatus);
     try {
       const res = await fetch('/api/users/status', {
@@ -125,6 +119,11 @@ export function DoctorStatusQuickCard({ className }: { className?: string }) {
               Ma disponibilité
             </p>
             <p className="mt-1 text-lg font-bold text-[#172033]">{presentation.label}</p>
+            {doctor?.inConsultation ? (
+              <p className="mt-1 text-sm text-[#64748B]">
+                Consultation en cours, le statut manuel sera restauré à la clôture.
+              </p>
+            ) : null}
             {doctor?.inConsultationPatient ? (
               <p className="mt-1 text-sm text-[#64748B]">
                 Patient : {doctor.inConsultationPatient.prenom} {doctor.inConsultationPatient.nom}

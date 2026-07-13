@@ -22,7 +22,15 @@ export async function GET(request: NextRequest) {
 
   const row = await prisma.user.findUnique({
     where: { id },
-    select: { email: true, nom: true, role: true, userStatus: true, isActive: true },
+    select: {
+      email: true,
+      nom: true,
+      role: true,
+      userStatus: true,
+      manualStatus: true,
+      statusSource: true,
+      isActive: true,
+    },
   });
 
   if (!row || !row.isActive) {
@@ -35,6 +43,8 @@ export async function GET(request: NextRequest) {
     role: row.role,
     nom: row.nom,
     userStatus: row.userStatus,
+    manualStatus: row.manualStatus,
+    statusSource: row.statusSource,
     isActive: row.isActive,
   });
 }

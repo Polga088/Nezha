@@ -76,6 +76,8 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
     nom: string;
     role: string;
     userStatus?: UserStatusType;
+    manualStatus?: UserStatusType | null;
+    statusSource?: 'MANUAL' | 'CONSULTATION';
   }>(ME_KEY, fetcher, { revalidateOnFocus: true });
 
   const { data: cabinet } = useSWR<PublicCabinetBranding>(PUBLIC_CABINET_SWR_KEY, fetcher, {
@@ -321,13 +323,24 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
                   <SelectValue placeholder="Statut" />
                 </SelectTrigger>
                 <SelectContent>
-                  {(['AVAILABLE', 'BUSY', 'IN_CONSULTATION', 'ON_BREAK', 'AWAY', 'DONE_TODAY', 'OFFLINE'] as UserStatusType[]).map((v) => (
+                  {(['AVAILABLE', 'BUSY', 'ON_BREAK', 'AWAY', 'DONE_TODAY'] as UserStatusType[]).map((v) => (
                     <SelectItem key={v} value={v}>
                       {USER_STATUS_LABELS[v]}
                     </SelectItem>
                   ))}
+                  <SelectItem value="IN_CONSULTATION" disabled>
+                    {USER_STATUS_LABELS.IN_CONSULTATION}
+                  </SelectItem>
+                  <SelectItem value="OFFLINE" disabled>
+                    {USER_STATUS_LABELS.OFFLINE}
+                  </SelectItem>
                 </SelectContent>
               </Select>
+              {isDoctor && me?.statusSource === 'CONSULTATION' ? (
+                <p className="px-0.5 pt-1 text-[11px] text-slate-500">
+                  Statut manuel mémorisé pendant la consultation en cours.
+                </p>
+              ) : null}
             </div>
           </>
         )}
