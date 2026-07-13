@@ -2,23 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { prisma } from '@/lib/prisma';
 import { requireAdmin } from '@/lib/requireAdmin';
+import { mapCodeToEnum } from '@/lib/insurance-type';
 import { insuranceTypeInputSchema, normalizeInsuranceCode } from '@/lib/insurance-types';
-import type { AssuranceType } from '@/generated/prisma/client';
-
-const ASSURANCE_ENUM: AssuranceType[] = [
-  'AUCUNE',
-  'CNSS',
-  'CNOPS',
-  'FAR',
-  'RAMID',
-  'MUTUELLE_PRIVEE',
-  'AUTRE',
-];
-
-function mapCodeToEnum(code: string): AssuranceType {
-  if ((ASSURANCE_ENUM as string[]).includes(code)) return code as AssuranceType;
-  return 'AUTRE';
-}
 
 /** GET /api/admin/insurance-types — liste complète (admin). */
 export async function GET(request: NextRequest) {
@@ -93,5 +78,3 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Code déjà utilisé ou erreur serveur' }, { status: 409 });
   }
 }
-
-export { mapCodeToEnum };
