@@ -1,9 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { authCookieSecure } from '@/lib/auth-cookie';
-
-/** Cookie de session JWT (aligné sur login) — pas de cookie nommé `token` dans Nezha */
-export const AUTH_COOKIE_NAME = 'auth_token';
+import { AUTH_COOKIE_NAME, authCookieSecure } from '@/lib/auth-cookie';
 
 function clearSessionCookie(response: NextResponse) {
   response.cookies.set({

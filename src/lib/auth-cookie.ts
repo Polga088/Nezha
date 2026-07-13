@@ -3,6 +3,8 @@
  * En HTTP (ex. http://IP:3001 sans TLS), Secure=true empêche le navigateur d'enregistrer le cookie
  * → login « réussi » mais redirection immédiate vers /login.
  */
+export const AUTH_COOKIE_NAME = 'auth_token';
+
 export function authCookieSecure(): boolean {
   const explicit = process.env.AUTH_COOKIE_SECURE?.trim().toLowerCase();
   if (explicit === 'true') return true;
