@@ -11,11 +11,15 @@ ALTER TABLE "User"
 
 UPDATE "User"
 SET
-  "manualStatus" = CASE
-    WHEN "userStatus" = 'IN_CONSULTATION' THEN 'AVAILABLE'
-    ELSE "userStatus"
-  END,
-  "statusSource" = CASE
-    WHEN "userStatus" = 'IN_CONSULTATION' THEN 'CONSULTATION'
-    ELSE 'MANUAL'
-  END;
+  "manualStatus" = (
+    CASE
+      WHEN "userStatus" = 'IN_CONSULTATION' THEN 'AVAILABLE'
+      ELSE "userStatus"::text
+    END
+  )::"UserStatus",
+  "statusSource" = (
+    CASE
+      WHEN "userStatus" = 'IN_CONSULTATION' THEN 'CONSULTATION'
+      ELSE 'MANUAL'
+    END
+  )::"StatusSource";
