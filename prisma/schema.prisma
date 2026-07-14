@@ -161,6 +161,9 @@ model GlobalSettings {
   smtpUser   String?
   smtpPass   String?
   smtpFrom   String?
+  publicReservationCndpText String? @db.Text
+  publicReservationCndpVersion String?
+  publicReservationPrivacyUrl String?
   updatedAt                DateTime   @updatedAt
 }
 
@@ -421,6 +424,11 @@ model Appointment {
   date_heure    DateTime
   motif         String
   statut        AppointmentStatus @default(WAITING)
+  reservationSource String        @default("INTERNAL")
+  publicBookingToken String?      @unique
+  publicConsentAcceptedAt DateTime?
+  publicConsentVersion String?
+  publicConsentTextSnapshot String? @db.Text
   /// Urgence, première consultation ou suivi — pilote la couleur agenda et la priorité en file.
   appointmentType AppointmentType @default(FOLLOW_UP)
   /// Couleur hex affichée dans l’agenda (dérivée du type si non renseignée).

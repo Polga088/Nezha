@@ -38,6 +38,9 @@ const brandingSchema = z.object({
   doctorSpecialty: z.string().max(200),
   mapEmbedUrl: z.string().max(4096),
   openingHours: z.array(hourRow).min(1, 'Au moins une ligne').max(14),
+  publicReservationCndpText: z.string().max(5000),
+  publicReservationCndpVersion: z.string().max(40),
+  publicReservationPrivacyUrl: z.string().max(2048),
   smtpHost: z.string().max(255),
   smtpPort: z.string().max(10),
   smtpUser: z.string().max(255),
@@ -57,6 +60,9 @@ export type BrandingInitial = {
   doctorSpecialty: string | null;
   mapEmbedUrl: string | null;
   openingHours: unknown;
+  publicReservationCndpText: string | null;
+  publicReservationCndpVersion: string | null;
+  publicReservationPrivacyUrl: string | null;
   smtpHost: string | null;
   smtpPort: number | null;
   smtpUser: string | null;
@@ -84,6 +90,9 @@ function toFormValues(initial: BrandingInitial): BrandingFormValues {
     doctorSpecialty: initial.doctorSpecialty ?? '',
     mapEmbedUrl: initial.mapEmbedUrl ?? '',
     openingHours: openingHoursFromDb(initial.openingHours),
+    publicReservationCndpText: initial.publicReservationCndpText ?? '',
+    publicReservationCndpVersion: initial.publicReservationCndpVersion ?? '',
+    publicReservationPrivacyUrl: initial.publicReservationPrivacyUrl ?? '',
     smtpHost: initial.smtpHost ?? '',
     smtpPort: initial.smtpPort != null ? String(initial.smtpPort) : '',
     smtpUser: initial.smtpUser ?? '',
@@ -180,6 +189,9 @@ export function AdminCabinetBrandingForm({ initial, loading, onSaved }: Props) {
           doctorSpecialty: values.doctorSpecialty.trim() || null,
           mapEmbedUrl: values.mapEmbedUrl.trim() || null,
           openingHours: values.openingHours,
+          publicReservationCndpText: values.publicReservationCndpText.trim() || null,
+          publicReservationCndpVersion: values.publicReservationCndpVersion.trim() || null,
+          publicReservationPrivacyUrl: values.publicReservationPrivacyUrl.trim() || null,
           smtpHost: values.smtpHost.trim() || null,
           smtpPort:
             values.smtpPort.trim() === ''
@@ -212,6 +224,9 @@ export function AdminCabinetBrandingForm({ initial, loading, onSaved }: Props) {
           doctorSpecialty: data.doctorSpecialty ?? null,
           mapEmbedUrl: data.mapEmbedUrl ?? null,
           openingHours: data.openingHours,
+          publicReservationCndpText: data.publicReservationCndpText ?? null,
+          publicReservationCndpVersion: data.publicReservationCndpVersion ?? null,
+          publicReservationPrivacyUrl: data.publicReservationPrivacyUrl ?? null,
           smtpHost: data.smtpHost ?? null,
           smtpPort: data.smtpPort ?? null,
           smtpUser: data.smtpUser ?? null,
@@ -496,6 +511,68 @@ export function AdminCabinetBrandingForm({ initial, loading, onSaved }: Props) {
                 </FormItem>
               )}
             />
+          </div>
+
+          {/* Réservation publique */}
+          <div className={`${bentoCard} lg:col-span-3`}>
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-on-surface-variant">
+              Réservation publique
+            </h3>
+            <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+              <FormField
+                control={form.control}
+                name="publicReservationCndpVersion"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Version CNDP</FormLabel>
+                    <FormControl>
+                      <Input {...field} value={field.value ?? ''} className="border-outline-variant/20 bg-surface" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="publicReservationPrivacyUrl"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>URL confidentialité</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        value={field.value ?? ''}
+                        placeholder="/politique-confidentialite"
+                        className="border-outline-variant/20 bg-surface"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="publicReservationCndpText"
+                render={({ field }) => (
+                  <FormItem className="md:col-span-2">
+                    <FormLabel>Texte CNDP</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        {...field}
+                        value={field.value ?? ''}
+                        rows={4}
+                        placeholder="Texte affiché dans le formulaire public de réservation"
+                        className="resize-y border-outline-variant/20 bg-surface"
+                      />
+                    </FormControl>
+                    <p className="text-xs text-on-surface-variant">
+                      Utilisé par la case à cocher de consentement en ligne.
+                    </p>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
           </div>
 
           {/* Horaires */}

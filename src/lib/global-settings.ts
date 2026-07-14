@@ -13,6 +13,9 @@ export async function ensureGlobalSettings() {
       defaultConsultationPrice: 0,
       acceptedPaymentMethods: DEFAULT_METHODS,
       signatureUrl: null,
+      publicReservationCndpText: null,
+      publicReservationCndpVersion: null,
+      publicReservationPrivacyUrl: null,
     },
     update: {},
   });

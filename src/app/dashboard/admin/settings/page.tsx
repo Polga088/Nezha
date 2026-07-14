@@ -45,6 +45,9 @@ type SettingsDto = {
   doctorSpecialty: string | null;
   mapEmbedUrl: string | null;
   openingHours: unknown;
+  publicReservationCndpText: string | null;
+  publicReservationCndpVersion: string | null;
+  publicReservationPrivacyUrl: string | null;
   smtpHost: string | null;
   smtpPort: number | null;
   smtpUser: string | null;
@@ -121,6 +124,9 @@ export default function AdminSettingsPage() {
       doctorSpecialty: settings.doctorSpecialty,
       mapEmbedUrl: settings.mapEmbedUrl,
       openingHours: settings.openingHours,
+      publicReservationCndpText: settings.publicReservationCndpText,
+      publicReservationCndpVersion: settings.publicReservationCndpVersion,
+      publicReservationPrivacyUrl: settings.publicReservationPrivacyUrl,
       smtpHost: settings.smtpHost,
       smtpPort: settings.smtpPort,
       smtpUser: settings.smtpUser,

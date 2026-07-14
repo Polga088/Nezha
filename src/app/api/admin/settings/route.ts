@@ -30,6 +30,12 @@ const BRANDING_PATCH_KEYS = [
   'openingHours',
 ] as const;
 
+const PUBLIC_RESERVATION_PATCH_KEYS = [
+  'publicReservationCndpText',
+  'publicReservationCndpVersion',
+  'publicReservationPrivacyUrl',
+] as const;
+
 function normalizePaymentMethods(input: unknown): string[] | null {
   if (!Array.isArray(input)) return null;
   const out: string[] = [];
@@ -42,6 +48,10 @@ function normalizePaymentMethods(input: unknown): string[] | null {
 
 function hasBrandingKeys(body: Record<string, unknown>): boolean {
   return BRANDING_PATCH_KEYS.some((k) => k in body);
+}
+
+function hasPublicReservationKeys(body: Record<string, unknown>): boolean {
+  return PUBLIC_RESERVATION_PATCH_KEYS.some((k) => k in body);
 }
 
 const SMTP_PATCH_KEYS = [
@@ -79,6 +89,9 @@ export async function GET(request: NextRequest) {
     doctorSpecialty: row.doctorSpecialty,
     mapEmbedUrl: row.mapEmbedUrl,
     openingHours: row.openingHours,
+    publicReservationCndpText: row.publicReservationCndpText,
+    publicReservationCndpVersion: row.publicReservationCndpVersion,
+    publicReservationPrivacyUrl: row.publicReservationPrivacyUrl,
     smtpHost: row.smtpHost,
     smtpPort: row.smtpPort,
     smtpUser: row.smtpUser,
@@ -101,6 +114,12 @@ export async function PATCH(request: NextRequest) {
     const priceIn = 'defaultConsultationPrice' in body ? body.defaultConsultationPrice : undefined;
     const methodsIn = 'acceptedPaymentMethods' in body ? body.acceptedPaymentMethods : undefined;
     const signatureUrlIn = 'signatureUrl' in body ? body.signatureUrl : undefined;
+    const cndpTextIn =
+      'publicReservationCndpText' in body ? body.publicReservationCndpText : undefined;
+    const cndpVersionIn =
+      'publicReservationCndpVersion' in body ? body.publicReservationCndpVersion : undefined;
+    const privacyUrlIn =
+      'publicReservationPrivacyUrl' in body ? body.publicReservationPrivacyUrl : undefined;
 
     const hasFinancial =
       currencyIn !== undefined ||
@@ -109,13 +128,14 @@ export async function PATCH(request: NextRequest) {
       signatureUrlIn !== undefined;
 
     const brandingPresent = hasBrandingKeys(body);
+    const publicReservationPresent = hasPublicReservationKeys(body);
     const smtpPresent = hasSmtpKeys(body);
 
-    if (!hasFinancial && !brandingPresent && !smtpPresent) {
+    if (!hasFinancial && !brandingPresent && !publicReservationPresent && !smtpPresent) {
       return NextResponse.json(
         {
           error:
-            'Fournir au moins un champ : devise, prix, paiements, signature, identité cabinet, ou configuration SMTP',
+            'Fournir au moins un champ : devise, prix, paiements, signature, identité cabinet, réservation publique, ou configuration SMTP',
         },
         { status: 400 }
       );
@@ -161,6 +181,30 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
+    if (
+      cndpTextIn !== undefined &&
+      cndpTextIn !== null &&
+      typeof cndpTextIn !== 'string'
+    ) {
+      return NextResponse.json({ error: 'publicReservationCndpText doit être une chaîne ou null' }, { status: 400 });
+    }
+
+    if (
+      cndpVersionIn !== undefined &&
+      cndpVersionIn !== null &&
+      typeof cndpVersionIn !== 'string'
+    ) {
+      return NextResponse.json({ error: 'publicReservationCndpVersion doit être une chaîne ou null' }, { status: 400 });
+    }
+
+    if (
+      privacyUrlIn !== undefined &&
+      privacyUrlIn !== null &&
+      typeof privacyUrlIn !== 'string'
+    ) {
+      return NextResponse.json({ error: 'publicReservationPrivacyUrl doit être une chaîne ou null' }, { status: 400 });
+    }
+
     let brandingParsed: ReturnType<typeof parseBrandingPatch> | null = null;
     if (brandingPresent) {
       brandingParsed = parseBrandingPatch(body);
@@ -187,6 +231,19 @@ export async function PATCH(request: NextRequest) {
     if (signatureUrlIn !== undefined) {
       const s = signatureUrlIn === null ? null : String(signatureUrlIn).trim();
       data.signatureUrl = s === '' ? null : s;
+    }
+
+    if (cndpTextIn !== undefined) {
+      const s = cndpTextIn === null ? null : String(cndpTextIn).trim();
+      data.publicReservationCndpText = s === '' ? null : s;
+    }
+    if (cndpVersionIn !== undefined) {
+      const s = cndpVersionIn === null ? null : String(cndpVersionIn).trim();
+      data.publicReservationCndpVersion = s === '' ? null : s;
+    }
+    if (privacyUrlIn !== undefined) {
+      const s = privacyUrlIn === null ? null : String(privacyUrlIn).trim();
+      data.publicReservationPrivacyUrl = s === '' ? null : s;
     }
 
     if (brandingParsed?.ok) {
@@ -301,6 +358,9 @@ export async function PATCH(request: NextRequest) {
       doctorSpecialty: row.doctorSpecialty,
       mapEmbedUrl: row.mapEmbedUrl,
       openingHours: row.openingHours,
+      publicReservationCndpText: row.publicReservationCndpText,
+      publicReservationCndpVersion: row.publicReservationCndpVersion,
+      publicReservationPrivacyUrl: row.publicReservationPrivacyUrl,
       smtpHost: row.smtpHost,
       smtpPort: row.smtpPort,
       smtpUser: row.smtpUser,
