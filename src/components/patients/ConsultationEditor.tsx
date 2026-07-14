@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Activity, Loader2, Save } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -16,8 +16,6 @@ import {
 } from '@/components/ui/select';
 import { VoiceDictation } from '@/components/patients/VoiceDictation';
 import { cn } from '@/lib/utils';
-
-const DEBOUNCE_MS = 2000;
 
 export type ConsultationEditorProps = {
   /** Patient cible pour les notes hors rendez-vous. */
@@ -42,7 +40,7 @@ export type ConsultationEditorProps = {
 
 /**
  * Éditeur de consultation : notes médecin + diagnostic, avec dictée IA (SOAP).
- * Sauvegarde automatique 2 s après la fin de frappe, ou bouton « Enregistrer les notes ».
+ * Sauvegarde manuelle via le bouton « Enregistrer les notes ».
  */
 export function ConsultationEditor({
   patientId,
@@ -53,7 +51,6 @@ export function ConsultationEditor({
   appointmentContextLabel,
   onNotesPreviewChange,
   onDiagnosticPreviewChange,
-  onSaved,
   className,
 }: ConsultationEditorProps) {
   const [notes, setNotes] = useState(initialNotesMedecin);
@@ -81,77 +78,57 @@ export function ConsultationEditor({
     onDiagnosticPreviewChange,
   ]);
 
-  const persist = useCallback(
-    async (silent?: boolean) => {
-      if (!hasDraftContent) {
-        if (!silent) toast.error('Renseignez une note ou un diagnostic.');
-        return false;
-      }
-      setSaving(true);
-      try {
-        const res =
-          appointmentId ?
-            await fetch(`/api/appointments/${appointmentId}`, {
-              method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
-              credentials: 'same-origin',
-              body: JSON.stringify({
-                notes_medecin: notes,
-                diagnostic,
-              }),
-            })
-          : await fetch(`/api/patients/${patientId}/consultations`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              credentials: 'same-origin',
-              body: JSON.stringify({
-                notes,
-                diagnostic,
-                source: 'OUT_OF_APPOINTMENT',
-                date: new Date().toISOString(),
-              }),
-            });
-        const raw = await res.text();
-        if (!res.ok) {
-          let msg = raw;
-          try {
-            const j = JSON.parse(raw) as { error?: string };
-            if (j.error) msg = j.error;
-          } catch {
-            /* brut */
-          }
-          toast.error(msg);
-          return false;
-        }
-        lastSavedRef.current = { notes, diagnostic };
-        if (!silent) {
-          toast.success('Notes enregistrées');
-        }
-        onSaved?.();
-        return true;
-      } catch {
-        toast.error('Erreur réseau lors de l’enregistrement');
-        return false;
-      } finally {
-        setSaving(false);
-      }
-    },
-    [appointmentId, patientId, notes, diagnostic, hasDraftContent, onSaved]
-  );
-
-  useEffect(() => {
-    if (!hasDraftContent) return;
-    if (
-      notes === lastSavedRef.current.notes &&
-      diagnostic === lastSavedRef.current.diagnostic
-    ) {
-      return;
+  const persist = async () => {
+    if (!hasDraftContent) {
+      toast.error('Renseignez une note ou un diagnostic.');
+      return false;
     }
-    const t = setTimeout(() => {
-      void persist(true);
-    }, DEBOUNCE_MS);
-    return () => clearTimeout(t);
-  }, [notes, diagnostic, hasDraftContent, persist]);
+    setSaving(true);
+    try {
+      const res =
+        appointmentId ?
+          await fetch(`/api/appointments/${appointmentId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify({
+              notes_medecin: notes,
+              diagnostic,
+            }),
+          })
+        : await fetch(`/api/patients/${patientId}/consultations`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify({
+              notes,
+              diagnostic,
+              source: 'OUT_OF_APPOINTMENT',
+              date: new Date().toISOString(),
+            }),
+          });
+      const raw = await res.text();
+      if (!res.ok) {
+        let msg = raw;
+        try {
+          const j = JSON.parse(raw) as { error?: string };
+          if (j.error) msg = j.error;
+        } catch {
+          /* brut */
+        }
+        toast.error(msg);
+        return false;
+      }
+      lastSavedRef.current = { notes, diagnostic };
+      toast.success('Notes enregistrées');
+      return true;
+    } catch {
+      toast.error('Erreur réseau lors de l’enregistrement');
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleNotesChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const v = e.target.value;
@@ -185,8 +162,8 @@ export function ConsultationEditor({
               Consultation
             </CardTitle>
             <CardDescription>
-              Notes privées médecin et diagnostic — dictée vocale structurée (SOAP). Sauvegarde automatique
-              après 2 s sans frappe.
+              Notes privées médecin et diagnostic — dictée vocale structurée (SOAP). Cliquez sur Enregistrer pour
+              sauvegarder.
             </CardDescription>
           </div>
           <div className="flex w-full flex-col items-stretch gap-2 sm:w-auto sm:items-end">
@@ -215,14 +192,14 @@ export function ConsultationEditor({
                 size="sm"
                 className="gap-1.5 bg-blue-600 text-white shadow-sm hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-500 sm:min-w-[168px]"
                 disabled={!hasDraftContent || saving}
-                onClick={() => void persist(false)}
+                onClick={() => void persist()}
               >
                 {saving ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
                   <Save className="h-4 w-4" />
                 )}
-                Enregistrer les notes
+                {saving ? 'Enregistrement…' : 'Enregistrer les notes'}
               </Button>
               {headerAction}
             </div>
