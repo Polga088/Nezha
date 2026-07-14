@@ -1025,7 +1025,7 @@ export default function PatientPage({ params }: { params: Promise<{ id: string }
                 initialDiagnostic={initialConsultationDiagnostic}
                 appointmentContextLabel={clinicalNotesContextLabel}
                 onNotesPreviewChange={setNotesForAlerts}
-                onSaved={refetchPatient}
+                onSaved={() => void fetchConsultations()}
                 headerAction={
                   <Button
                     onClick={() => {

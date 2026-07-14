@@ -33,7 +33,7 @@ export type ConsultationEditorProps = {
   onNotesPreviewChange?: (notes: string) => void;
   onDiagnosticPreviewChange?: (diagnostic: string) => void;
   /** Après enregistrement explicite (bouton), pour recharger le dossier */
-  onSaved?: () => void;
+  onSaved?: () => void | Promise<void>;
   /** Classes sur la carte racine (design system) */
   className?: string;
 };
@@ -51,6 +51,7 @@ export function ConsultationEditor({
   appointmentContextLabel,
   onNotesPreviewChange,
   onDiagnosticPreviewChange,
+  onSaved,
   className,
 }: ConsultationEditorProps) {
   const [notes, setNotes] = useState(initialNotesMedecin);
@@ -120,6 +121,16 @@ export function ConsultationEditor({
         return false;
       }
       lastSavedRef.current = { notes, diagnostic };
+      setNotes('');
+      setDiagnostic('');
+      onNotesPreviewChange?.('');
+      onDiagnosticPreviewChange?.('');
+      lastSavedRef.current = { notes: '', diagnostic: '' };
+      try {
+        await onSaved?.();
+      } catch {
+        /* refresh history non bloquant */
+      }
       toast.success('Notes enregistrées');
       return true;
     } catch {
