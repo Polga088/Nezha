@@ -359,6 +359,10 @@ export async function createPublicReservation(input: PublicReservationCreateInpu
     return { ok: false as const, status: 400, message: 'Adresse email invalide' };
   }
 
+  if (cleanTel.replace(/[^\d]/g, '').length < 6) {
+    return { ok: false as const, status: 400, message: 'Numéro de téléphone invalide' };
+  }
+
   if (cleanDateNaissance.getTime() > Date.now()) {
     return { ok: false as const, status: 400, message: 'Date de naissance invalide' };
   }

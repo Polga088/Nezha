@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 
 import { getPublicReservationSlotsData } from '@/lib/public-reservation-service';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: Request) {
   try {
     const url = new URL(request.url);
