@@ -1,11 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
-import { ClipboardPlus } from 'lucide-react';
+import { ClipboardPlus, Loader2, Save } from 'lucide-react';
 
 import {
   Dialog,
@@ -38,6 +38,7 @@ import {
 import {
   CONSULTATION_TYPE_OPTIONS,
   DEFAULT_CONSULTATION_TYPE,
+  type ConsultationTypeValue,
 } from '@/lib/consultation-types';
 
 const TA_OPTIONAL = z
@@ -106,44 +107,89 @@ const consultationSchema = z
 
 export type ConsultationFormValues = z.infer<typeof consultationSchema>;
 
+type ConsultationFormData = {
+  type?: string | null;
+  motif?: string | null;
+  glycemie?: number | null;
+  tensionArterielle?: string | null;
+  battementCoeur?: number | null;
+  diagnostic?: string | null;
+  notes?: string | null;
+  date?: string;
+};
+
 export type ConsultationFormProps = {
   patientId: string;
-  onSaved?: () => void;
+  onSaved?: () => void | Promise<void>;
   triggerClassName?: string;
+  triggerLabel?: string;
+  dialogTitle?: string;
+  dialogDescription?: string;
+  consultationId?: string | null;
+  initialValues?: ConsultationFormData;
+  submitLabel?: string;
+  submitPendingLabel?: string;
 };
 
 const nowValue = () => new Date().toISOString().slice(0, 16);
 
-export function ConsultationForm({ patientId, onSaved, triggerClassName }: ConsultationFormProps) {
+const toDatetimeLocalValue = (value?: string | null) => {
+  if (!value) return nowValue();
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return nowValue();
+  return date.toISOString().slice(0, 16);
+};
+
+export function ConsultationForm({
+  patientId,
+  onSaved,
+  triggerClassName,
+  triggerLabel = 'Saisie constantes',
+  dialogTitle = 'Consultation historique',
+  dialogDescription = 'Type de consultation, motif, date, constantes, diagnostic et notes libres.',
+  consultationId = null,
+  initialValues,
+  submitLabel = consultationId ? 'Enregistrer les modifications' : 'Enregistrer',
+  submitPendingLabel = 'Enregistrement…',
+}: ConsultationFormProps) {
+  const isEditing = consultationId != null;
   const [open, setOpen] = useState(false);
-  const [historicalDateEnabled, setHistoricalDateEnabled] = useState(false);
+  const [historicalDateEnabled, setHistoricalDateEnabled] = useState(isEditing);
+
+  const defaultValues = useMemo<ConsultationFormValues>(
+    () => ({
+      type: (initialValues?.type?.trim() as ConsultationTypeValue | undefined) ?? DEFAULT_CONSULTATION_TYPE,
+      motif: initialValues?.motif ?? '',
+      glycemie:
+        initialValues?.glycemie == null || Number.isNaN(initialValues.glycemie)
+          ? ''
+          : String(initialValues.glycemie),
+      tensionArterielle: initialValues?.tensionArterielle ?? '',
+      battementCoeur:
+        initialValues?.battementCoeur == null || Number.isNaN(initialValues.battementCoeur)
+          ? ''
+          : String(initialValues.battementCoeur),
+      diagnostic: initialValues?.diagnostic ?? '',
+      notes: initialValues?.notes ?? '',
+      date: toDatetimeLocalValue(initialValues?.date ?? null),
+    }),
+    [initialValues]
+  );
 
   const form = useForm<ConsultationFormValues>({
     resolver: zodResolver(consultationSchema),
-    defaultValues: {
-      type: DEFAULT_CONSULTATION_TYPE,
-      motif: '',
-      glycemie: '',
-      tensionArterielle: '',
-      battementCoeur: '',
-      diagnostic: '',
-      notes: '',
-      date: nowValue(),
-    },
+    defaultValues,
   });
 
+  useEffect(() => {
+    if (!open) return;
+    form.reset(defaultValues);
+    setHistoricalDateEnabled(isEditing);
+  }, [defaultValues, form, isEditing, open]);
+
   const resetForm = () => {
-    setHistoricalDateEnabled(false);
-    form.reset({
-      type: DEFAULT_CONSULTATION_TYPE,
-      motif: '',
-      glycemie: '',
-      tensionArterielle: '',
-      battementCoeur: '',
-      diagnostic: '',
-      notes: '',
-      date: nowValue(),
-    });
+    setHistoricalDateEnabled(isEditing);
+    form.reset(defaultValues);
   };
 
   const handleOpenChange = (next: boolean) => {
@@ -173,37 +219,43 @@ export function ConsultationForm({ patientId, onSaved, triggerClassName }: Consu
       toast.error('Date invalide');
       return;
     }
-    if (historicalDateEnabled && date.getTime() > Date.now()) {
+    if (!isEditing && historicalDateEnabled && date.getTime() > Date.now()) {
       toast.error('La date historique ne peut pas être dans le futur');
       return;
     }
 
-    const consultationType = String(values.type ?? DEFAULT_CONSULTATION_TYPE).trim();
+    const typeValue = String(values.type ?? DEFAULT_CONSULTATION_TYPE).trim();
+    const payload = {
+      type: typeValue,
+      motif,
+      glycemie,
+      battementCoeur,
+      tensionArterielle,
+      diagnostic,
+      notes,
+      date: date.toISOString(),
+      ...(isEditing ? {} : { source: 'OUT_OF_APPOINTMENT' as const }),
+    };
 
     try {
-      const res = await fetch(`/api/patients/${patientId}/consultations`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin',
-        body: JSON.stringify({
-          type: consultationType,
-          motif,
-          glycemie,
-          battementCoeur,
-          tensionArterielle,
-          diagnostic,
-          notes,
-          date: date.toISOString(),
-          source: 'OUT_OF_APPOINTMENT',
-        }),
-      });
+      const res = await fetch(
+        isEditing
+          ? `/api/patients/${patientId}/consultations/${consultationId}`
+          : `/api/patients/${patientId}/consultations`,
+        {
+          method: isEditing ? 'PATCH' : 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify(payload),
+        }
+      );
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         toast.error(typeof data.error === 'string' ? data.error : 'Enregistrement impossible');
         return;
       }
-      toast.success('Consultation enregistrée');
-      onSaved?.();
+      await onSaved?.();
+      toast.success(isEditing ? 'Consultation modifiée' : 'Consultation enregistrée');
       setOpen(false);
       resetForm();
     } catch {
@@ -211,14 +263,7 @@ export function ConsultationForm({ patientId, onSaved, triggerClassName }: Consu
     }
   });
 
-  const toggleHistoricalDate = (enabled: boolean) => {
-    setHistoricalDateEnabled(enabled);
-    if (enabled) {
-      form.setValue('date', nowValue(), { shouldDirty: true, shouldValidate: true });
-    } else {
-      form.setValue('date', nowValue(), { shouldDirty: true, shouldValidate: true });
-    }
-  };
+  const dateDisabled = !isEditing && !historicalDateEnabled;
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -232,16 +277,14 @@ export function ConsultationForm({ patientId, onSaved, triggerClassName }: Consu
             'gap-2 border-slate-200 text-slate-700 hover:bg-slate-50 shadow-sm'
           }
         >
-          <ClipboardPlus className="h-4 w-4 shrink-0 text-blue-600" aria-hidden />
-          Saisie constantes
+          {!isEditing ? <ClipboardPlus className="h-4 w-4 shrink-0 text-blue-600" aria-hidden /> : null}
+          {triggerLabel}
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-xl max-h-[min(90vh,720px)] overflow-y-auto border-slate-200">
         <DialogHeader>
-          <DialogTitle className="text-slate-900">Consultation historique</DialogTitle>
-          <DialogDescription>
-            Type de consultation, motif, date antérieure, constantes, diagnostic et notes libres.
-          </DialogDescription>
+          <DialogTitle className="text-slate-900">{dialogTitle}</DialogTitle>
+          <DialogDescription>{dialogDescription}</DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -288,43 +331,44 @@ export function ConsultationForm({ patientId, onSaved, triggerClassName }: Consu
               />
             </div>
 
-            <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-3">
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <Label htmlFor="historical-date" className="text-sm font-medium text-slate-800">
-                    Ajouter une consultation antérieure
-                  </Label>
-                  <p className="text-xs text-slate-500">
-                    Laissez désactivé pour enregistrer à l’instant.
-                  </p>
+            {!isEditing ? (
+              <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-3">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <Label htmlFor="historical-date" className="text-sm font-medium text-slate-800">
+                      Ajouter une consultation antérieure
+                    </Label>
+                    <p className="text-xs text-slate-500">
+                      Laissez désactivé pour enregistrer à l’instant.
+                    </p>
+                  </div>
+                  <Switch
+                    id="historical-date"
+                    checked={historicalDateEnabled}
+                    onCheckedChange={setHistoricalDateEnabled}
+                  />
                 </div>
-                <Switch
-                  id="historical-date"
-                  checked={historicalDateEnabled}
-                  onCheckedChange={toggleHistoricalDate}
-                />
               </div>
-              <div className="mt-3">
-                <FormField
-                  control={form.control}
-                  name="date"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Date et heure</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="datetime-local"
-                          {...field}
-                          disabled={!historicalDateEnabled}
-                          className="font-mono text-sm bg-white"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-            </div>
+            ) : null}
+
+            <FormField
+              control={form.control}
+              name="date"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Date et heure</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="datetime-local"
+                      {...field}
+                      disabled={dateDisabled}
+                      className="font-mono text-sm bg-white"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <FormField
@@ -441,7 +485,17 @@ export function ConsultationForm({ patientId, onSaved, triggerClassName }: Consu
                 disabled={form.formState.isSubmitting}
                 className="bg-gradient-to-b from-blue-500 to-blue-600 text-white shadow-sm"
               >
-                {form.formState.isSubmitting ? 'Enregistrement…' : 'Enregistrer'}
+                {form.formState.isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    {submitPendingLabel}
+                  </>
+                ) : (
+                  <>
+                    <Save className="mr-2 h-4 w-4" />
+                    {submitLabel}
+                  </>
+                )}
               </Button>
             </div>
           </form>

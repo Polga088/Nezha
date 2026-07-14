@@ -7,6 +7,7 @@ import { Activity, ChevronDown, ChevronRight, Heart, Thermometer } from 'lucide-
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { ConsultationForm } from '@/components/patients/ConsultationForm';
 import { getGlycemiaBadgeClassName, getTensionBadgeClassName } from '@/lib/vitals-utils';
 import { getConsultationTypeLabel } from '@/lib/consultation-types';
 
@@ -28,10 +29,17 @@ export type PatientConsultationRow = {
 type Props = {
   /** Données triées par date croissante (API GET) — affichage du plus récent au plus ancien. */
   consultations: PatientConsultationRow[];
+  patientId: string;
   headerAction?: React.ReactNode;
+  onConsultationSaved?: () => void | Promise<void>;
 };
 
-export function ConsultationHistory({ consultations, headerAction }: Props) {
+export function ConsultationHistory({
+  consultations,
+  patientId,
+  headerAction,
+  onConsultationSaved,
+}: Props) {
   const newestFirst = useMemo(
     () => [...consultations].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
     [consultations]
@@ -212,7 +220,19 @@ export function ConsultationHistory({ consultations, headerAction }: Props) {
                           </p>
                         </div>
                       ) : null}
-                      <div className="mt-4">
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        <ConsultationForm
+                          patientId={patientId}
+                          consultationId={c.id}
+                          initialValues={c}
+                          onSaved={onConsultationSaved}
+                          triggerLabel="Modifier"
+                          dialogTitle="Modifier la consultation"
+                          dialogDescription="Actualisez le type, la date, le motif, les constantes, le diagnostic et les notes."
+                          submitLabel="Enregistrer les modifications"
+                          submitPendingLabel="Enregistrement…"
+                          triggerClassName="border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                        />
                         <Button type="button" variant="outline" size="sm" onClick={() => setOpenId(null)}>
                           Masquer les détails
                         </Button>

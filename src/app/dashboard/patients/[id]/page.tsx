@@ -838,7 +838,9 @@ export default function PatientPage({ params }: { params: Promise<{ id: string }
                 <VitalsAnalytics consultations={consultations} />
               </div>
               <ConsultationHistory
+                patientId={patient.id}
                 consultations={consultations}
+                onConsultationSaved={() => void fetchConsultations()}
                 headerAction={
                   patient?.id ? (
                     <ConsultationForm
