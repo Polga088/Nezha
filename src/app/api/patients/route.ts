@@ -11,6 +11,25 @@ async function getUser(request: NextRequest) {
   return await verifyJwt(token);
 }
 
+const ALLOWED_PAGE_SIZES = new Set([10, 25, 50, 100]);
+
+function buildSearchWhere(searchTerm: string) {
+  const words = searchTerm.split(/\s+/).filter((word) => word.length > 0);
+  if (words.length === 0) return undefined;
+
+  return {
+    AND: words.map((word) => ({
+      OR: [
+        { nom: { contains: word, mode: 'insensitive' as const } },
+        { prenom: { contains: word, mode: 'insensitive' as const } },
+        { cin: { contains: word, mode: 'insensitive' as const } },
+        { tel: { contains: word, mode: 'insensitive' as const } },
+        { email: { contains: word, mode: 'insensitive' as const } },
+      ],
+    })),
+  };
+}
+
 // GET: Liste des patients (Recherche optionnelle via ?q=)
 export async function GET(request: NextRequest) {
   const user = await getUser(request);
@@ -19,37 +38,47 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const searchRaw = searchParams.get('q') ?? searchParams.get('search');
   const searchTerm = searchRaw?.trim() ?? '';
-  const limitRaw = searchParams.get('limit');
-  const parsedLimit = limitRaw ? Number.parseInt(limitRaw, 10) : NaN;
-  const take = Number.isFinite(parsedLimit)
-    ? Math.min(100, Math.max(1, parsedLimit))
-    : 50;
+  const pageRaw = searchParams.get('page');
+  const pageParsed = pageRaw ? Number.parseInt(pageRaw, 10) : NaN;
+  const page = Number.isFinite(pageParsed) && pageParsed > 0 ? pageParsed : 1;
 
-  /** Chaque mot doit apparaître au moins une fois dans nom, prénom, CIN ou téléphone (AND entre mots, OR sur les champs). */
-  const words = searchTerm.split(/\s+/).filter((w) => w.length > 0);
+  const pageSizeRaw = searchParams.get('pageSize');
+  const parsedPageSize = pageSizeRaw ? Number.parseInt(pageSizeRaw, 10) : NaN;
+  const pageSize = ALLOWED_PAGE_SIZES.has(parsedPageSize) ? parsedPageSize : 25;
 
-  const where =
-    words.length > 0
-      ? {
-          AND: words.map((word) => ({
-            OR: [
-              { nom: { contains: word, mode: 'insensitive' as const } },
-              { prenom: { contains: word, mode: 'insensitive' as const } },
-              { cin: { contains: word, mode: 'insensitive' as const } },
-              { tel: { contains: word, mode: 'insensitive' as const } },
-            ],
-          })),
-        }
-      : undefined;
+  const where = buildSearchWhere(searchTerm);
 
   try {
+    const total = await prisma.patient.count({
+      where,
+    });
+    const totalPages = total === 0 ? 0 : Math.ceil(total / pageSize);
+    const safePage = totalPages === 0 ? 1 : Math.min(page, totalPages);
+    const skip = (safePage - 1) * pageSize;
     const patients = await prisma.patient.findMany({
       where,
-      orderBy: { createdAt: 'desc' },
-      take,
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      skip,
+      take: pageSize,
     });
 
-    return NextResponse.json(patients);
+    const from = total === 0 ? 0 : skip + 1;
+    const to = total === 0 ? 0 : Math.min(skip + patients.length, total);
+
+    const globalTotal = await prisma.patient.count();
+
+    return NextResponse.json({
+      data: patients,
+      pagination: {
+        page: safePage,
+        pageSize,
+        total,
+        totalPages,
+        from,
+        to,
+        globalTotal,
+      },
+    });
   } catch (error) {
     console.error('[GET /api/patients]', error);
     return NextResponse.json(

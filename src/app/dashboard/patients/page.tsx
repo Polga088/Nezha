@@ -74,6 +74,23 @@ type ImportResponse = {
   errors?: string[];
 };
 
+type PatientsPagination = {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+  from: number;
+  to: number;
+  globalTotal?: number;
+};
+
+type PatientsApiResponse = {
+  data: PatientRow[];
+  pagination: PatientsPagination;
+};
+
+const PATIENT_PAGE_SIZES = [10, 25, 50, 100] as const;
+
 /** En-têtes attendues par POST /api/patients/import (ligne vide sous l’en-tête). */
 const PATIENT_IMPORT_CSV_HEADERS =
   'nom,prenom,date_naissance,cin,sexe,tel,email,adresse,groupeSanguin,taille,poids,assuranceType,matriculeAssurance';
@@ -82,6 +99,18 @@ export default function PatientsPage() {
   const router = useRouter();
   const [patients, setPatients] = useState<PatientRow[]>([]);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<(typeof PATIENT_PAGE_SIZES)[number]>(25);
+  const [pagination, setPagination] = useState<PatientsPagination>({
+    page: 1,
+    pageSize: 25,
+    total: 0,
+    totalPages: 0,
+    from: 0,
+    to: 0,
+    globalTotal: 0,
+  });
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [editPatient, setEditPatient] = useState<PatientForEdit | null>(null);
@@ -92,42 +121,77 @@ export default function PatientsPage() {
   const [importResult, setImportResult] = useState<ImportResponse | null>(null);
   const [reportPage, setReportPage] = useState(1);
 
-  /** Valeur envoyée à l’API (`?q=`) après pause de saisie (debounce). */
-  const [debouncedQuery, setDebouncedQuery] = useState('');
-
   useEffect(() => {
     const trimmed = search.trim();
     const delayMs = trimmed === '' ? 0 : 400;
     const id = window.setTimeout(() => {
-      setDebouncedQuery(trimmed);
+      setDebouncedSearch(trimmed);
     }, delayMs);
     return () => window.clearTimeout(id);
   }, [search]);
 
-  const fetchPatients = useCallback(async () => {
-    try {
-      setLoading(true);
-      const url = debouncedQuery
-        ? `/api/patients?q=${encodeURIComponent(debouncedQuery)}`
-        : '/api/patients';
-      const res = await fetch(url);
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        console.error('[Patients] GET failed', res.status, err);
-        throw new Error('Query failed');
+  const searchPending = search.trim() !== debouncedSearch;
+
+  const fetchPatients = useCallback(
+    async (overrides?: { page?: number; pageSize?: number; search?: string }) => {
+      try {
+        setLoading(true);
+        const currentPage = overrides?.page ?? page;
+        const currentPageSize = overrides?.pageSize ?? pageSize;
+        const currentSearch = overrides?.search ?? debouncedSearch;
+        const params = new URLSearchParams({
+          page: String(currentPage),
+          pageSize: String(currentPageSize),
+        });
+        if (currentSearch) {
+          params.set('search', currentSearch);
+        }
+        const url = `/api/patients?${params.toString()}`;
+        const res = await fetch(url);
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          console.error('[Patients] GET failed', res.status, err);
+          throw new Error('Query failed');
+        }
+        const data = (await res.json()) as PatientsApiResponse;
+        setPatients(Array.isArray(data.data) ? data.data : []);
+        setPagination(data.pagination);
+        if (data.pagination.page !== currentPage) {
+          setPage(data.pagination.page);
+        }
+      } catch (e) {
+        setPatients([]);
+        setPagination((current) => ({
+          ...current,
+          total: 0,
+          totalPages: 0,
+          from: 0,
+          to: 0,
+          globalTotal: current.globalTotal ?? 0,
+        }));
+      } finally {
+        setLoading(false);
       }
-      const data = await res.json();
-      setPatients(Array.isArray(data) ? data : []);
-    } catch (e) {
-      setPatients([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [debouncedQuery]);
+    },
+    [debouncedSearch, page, pageSize]
+  );
 
   useEffect(() => {
+    if (searchPending) return;
     void fetchPatients();
-  }, [fetchPatients]);
+  }, [fetchPatients, searchPending]);
+
+  const handleSearchChange = (value: string) => {
+    setSearch(value);
+    setPage(1);
+  };
+
+  const handlePageSizeChange = (value: string) => {
+    const nextSize = Number.parseInt(value, 10) as (typeof PATIENT_PAGE_SIZES)[number];
+    if (!PATIENT_PAGE_SIZES.includes(nextSize)) return;
+    setPageSize(nextSize);
+    setPage(1);
+  };
 
   const openEdit = (p: PatientRow) => {
     setEditPatient(p);
@@ -229,8 +293,8 @@ export default function PatientsPage() {
           duration: 25_000,
         });
       }
-      fetchPatients();
-      router.refresh();
+      setPage(1);
+      await fetchPatients({ page: 1, pageSize, search: debouncedSearch });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Import impossible');
     } finally {
@@ -258,6 +322,21 @@ export default function PatientsPage() {
     URL.revokeObjectURL(url);
     toast.success('Rapport CSV téléchargé');
   };
+
+  const totalAll = pagination.globalTotal ?? pagination.total;
+  const hasSearch = debouncedSearch.length > 0;
+  const topSummary = hasSearch
+    ? `${pagination.total} résultats sur ${totalAll} patients`
+    : `${totalAll} patients au total`;
+  const rangeSummary =
+    pagination.total === 0
+      ? 'Affichage de 0 à 0 sur 0'
+      : `Affichage de ${pagination.from} à ${pagination.to} sur ${totalAll}`;
+  const currentPageLabel = `Page ${pagination.page} sur ${Math.max(1, pagination.totalPages)}`;
+  const firstRowNumber = pagination.total === 0 ? 0 : (pagination.page - 1) * pagination.pageSize + 1;
+  const lastRowNumber = pagination.total === 0 ? 0 : (pagination.page - 1) * pagination.pageSize + patients.length;
+  const canGoPrevious = pagination.page > 1;
+  const canGoNext = pagination.page < pagination.totalPages;
 
   return (
     <div className="animate-fade-in space-y-6">
@@ -290,7 +369,7 @@ export default function PatientsPage() {
                 placeholder="Nom, prénom, téléphone, CIN…"
                 className="pl-10"
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => handleSearchChange(e.target.value)}
                 aria-label="Recherche patient"
                 autoComplete="off"
               />
@@ -335,6 +414,13 @@ export default function PatientsPage() {
           </>
         }
       >
+        <div className="mb-4 rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-3 text-sm text-slate-700">
+          <div className="flex flex-col gap-1 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+            <p className="font-medium text-slate-900">{topSummary}</p>
+            <p>{rangeSummary}</p>
+          </div>
+        </div>
+
         {reportSummary ? (
           <div className="mb-6 space-y-4 rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
             <div className="grid gap-3 md:grid-cols-6">
@@ -450,6 +536,7 @@ export default function PatientsPage() {
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
+              <TableHead className="w-16">N°</TableHead>
               <TableHead className="w-[300px]">Patient</TableHead>
               <TableHead className="hidden sm:table-cell">Téléphone</TableHead>
               <TableHead className="hidden md:table-cell">Date de naissance</TableHead>
@@ -459,13 +546,13 @@ export default function PatientsPage() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={4} className="text-center h-24 text-slate-400">
+                <TableCell colSpan={5} className="text-center h-24 text-slate-400">
                   Chargement…
                 </TableCell>
               </TableRow>
             ) : patients.length === 0 ? (
               <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={4} className="p-0">
+                <TableCell colSpan={5} className="p-0">
                   <EmptyState
                     icon={User}
                     title="Aucun patient enregistré"
@@ -479,82 +566,149 @@ export default function PatientsPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              patients.map((p) => (
-                <TableRow key={p.id} className="cursor-pointer">
-                  <TableCell
-                    className="font-medium"
-                    onClick={() => router.push(`/dashboard/patients/${p.id}`)}
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <Avatar className="h-10 w-10 bg-gradient-to-br from-blue-50 to-indigo-50 text-blue-600 shrink-0 ring-1 ring-blue-100">
-                        <AvatarFallback className="font-semibold text-xs border border-blue-100">
-                          {p.prenom[0]}
-                          {p.nom[0]}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex flex-col min-w-0 flex-1">
-                        <span className="text-slate-900 font-semibold">
-                          {p.prenom} <span className="uppercase">{p.nom}</span>
-                        </span>
+              patients.map((p, index) => {
+                const rowNumber = (pagination.page - 1) * pagination.pageSize + index + 1;
+                return (
+                  <TableRow key={p.id} className="cursor-pointer">
+                    <TableCell className="font-medium text-slate-500">{rowNumber}</TableCell>
+                    <TableCell
+                      className="font-medium"
+                      onClick={() => router.push(`/dashboard/patients/${p.id}`)}
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <Avatar className="h-10 w-10 bg-gradient-to-br from-blue-50 to-indigo-50 text-blue-600 shrink-0 ring-1 ring-blue-100">
+                          <AvatarFallback className="font-semibold text-xs border border-blue-100">
+                            {p.prenom[0]}
+                            {p.nom[0]}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex flex-col min-w-0 flex-1">
+                          <span className="text-slate-900 font-semibold">
+                            {p.prenom} <span className="uppercase">{p.nom}</span>
+                          </span>
+                        </div>
+                        {hasDeclaredAssurance(p.assuranceType) ? (
+                          <span
+                            className="shrink-0 text-emerald-600/85"
+                            title="Couverture sociale déclarée"
+                            aria-label="Couverture sociale déclarée"
+                          >
+                            <ShieldCheck className="h-4 w-4" strokeWidth={2} aria-hidden />
+                          </span>
+                        ) : null}
                       </div>
-                      {hasDeclaredAssurance(p.assuranceType) ? (
-                        <span
-                          className="shrink-0 text-emerald-600/85"
-                          title="Couverture sociale déclarée"
-                          aria-label="Couverture sociale déclarée"
-                        >
-                          <ShieldCheck className="h-4 w-4" strokeWidth={2} aria-hidden />
-                        </span>
-                      ) : null}
-                    </div>
-                  </TableCell>
-                  <TableCell
-                    className="text-slate-600 hidden sm:table-cell"
-                    onClick={() => router.push(`/dashboard/patients/${p.id}`)}
-                  >
-                    {p.tel}
-                  </TableCell>
-                  <TableCell
-                    className="text-slate-600 hidden md:table-cell"
-                    onClick={() => router.push(`/dashboard/patients/${p.id}`)}
-                  >
-                    {new Date(p.date_naissance).toLocaleDateString()}
-                  </TableCell>
-                  <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          className="h-8 w-8 p-0"
-                          onClick={(e) => e.stopPropagation()}
-                          type="button"
-                        >
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                          onSelect={() => router.push(`/dashboard/patients/${p.id}`)}
-                        >
-                          <FileText className="mr-2 h-4 w-4" /> Voir Dossier
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onSelect={() => openEdit(p)}>
-                          <Edit className="mr-2 h-4 w-4" /> Modifier
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className="text-red-600 focus:bg-red-50 focus:text-red-600"
-                          onSelect={() => handleDelete(p)}
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" /> Supprimer
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))
+                    </TableCell>
+                    <TableCell
+                      className="text-slate-600 hidden sm:table-cell"
+                      onClick={() => router.push(`/dashboard/patients/${p.id}`)}
+                    >
+                      {p.tel}
+                    </TableCell>
+                    <TableCell
+                      className="text-slate-600 hidden md:table-cell"
+                      onClick={() => router.push(`/dashboard/patients/${p.id}`)}
+                    >
+                      {new Date(p.date_naissance).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            className="h-8 w-8 p-0"
+                            onClick={(e) => e.stopPropagation()}
+                            type="button"
+                          >
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            onSelect={() => router.push(`/dashboard/patients/${p.id}`)}
+                          >
+                            <FileText className="mr-2 h-4 w-4" /> Voir Dossier
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onSelect={() => openEdit(p)}>
+                            <Edit className="mr-2 h-4 w-4" /> Modifier
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="text-red-600 focus:bg-red-50 focus:text-red-600"
+                            onSelect={() => handleDelete(p)}
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" /> Supprimer
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
             )}
           </TableBody>
         </Table>
+
+        <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4">
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+            <p className="text-sm text-slate-600">{currentPageLabel}</p>
+            <label className="flex items-center gap-2 text-sm text-slate-600">
+              <span>Lignes par page</span>
+              <select
+                aria-label="Lignes par page"
+                className="h-9 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 shadow-sm"
+                value={pageSize}
+                onChange={(event) => handlePageSizeChange(event.target.value)}
+              >
+                {PATIENT_PAGE_SIZES.map((size) => (
+                  <option key={size} value={size}>
+                    {size}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setPage(1)}
+              disabled={!canGoPrevious}
+            >
+              Première page
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setPage((value) => Math.max(1, value - 1))}
+              disabled={!canGoPrevious}
+            >
+              Page précédente
+            </Button>
+            <div className="px-2 text-sm text-slate-600">
+              Page {pagination.page} sur {Math.max(1, pagination.totalPages)}
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setPage((value) => Math.min(Math.max(1, pagination.totalPages), value + 1))}
+              disabled={!canGoNext}
+            >
+              Page suivante
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setPage(Math.max(1, pagination.totalPages))}
+              disabled={!canGoNext}
+            >
+              Dernière page
+            </Button>
+          </div>
+          <div className="text-sm text-slate-500">
+            {pagination.total === 0
+              ? 'Aucun patient à afficher'
+              : `${rangeSummary}${firstRowNumber === 0 ? '' : ` — ligne ${firstRowNumber} à ${lastRowNumber}`}`}
+          </div>
+        </div>
       </DataTableShell>
 
       <CreatePatientModal
