@@ -140,7 +140,15 @@ function AgendaPageContent() {
   const fetchPatientsList = async () => {
     try {
       const res = await fetch('/api/patients');
-      if (res.ok) setPatients(await res.json());
+      if (!res.ok) return;
+      const data = await res.json().catch(() => null);
+      if (Array.isArray(data)) {
+        setPatients(data);
+      } else if (Array.isArray(data?.data)) {
+        setPatients(data.data);
+      } else {
+        setPatients([]);
+      }
     } catch (e) {
       console.error('[Agenda] fetchPatientsList', e);
     }
