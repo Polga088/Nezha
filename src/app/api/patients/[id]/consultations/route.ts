@@ -3,6 +3,12 @@ import type { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyJwt } from '@/lib/auth';
 import { requireStaff } from '@/lib/requireStaff';
+import {
+  DEFAULT_CONSULTATION_TYPE,
+  isConsultationTypeValue,
+  normalizeConsultationType,
+} from '@/lib/consultation-types';
+import type { ConsultationType as PrismaConsultationType } from '@/generated/prisma/client';
 
 async function getUser(request: NextRequest) {
   const token = request.cookies.get('auth_token')?.value;
@@ -26,6 +32,36 @@ function parseOptionalFloat(v: unknown): number | null {
   return n;
 }
 
+function parseConsultationDate(raw: unknown): { value: Date | null; error?: string } {
+  if (raw === undefined || raw === null || raw === '') {
+    return { value: new Date() };
+  }
+  const date = raw instanceof Date ? raw : new Date(String(raw));
+  if (Number.isNaN(date.getTime())) {
+    return { value: null, error: 'Date invalide' };
+  }
+  if (date.getTime() > Date.now()) {
+    return { value: null, error: 'Date future interdite' };
+  }
+  return { value: date };
+}
+
+function parseConsultationType(raw: unknown): { value: PrismaConsultationType; error?: string } {
+  if (raw === undefined || raw === null || raw === '') {
+    return { value: DEFAULT_CONSULTATION_TYPE };
+  }
+  if (!isConsultationTypeValue(raw)) {
+    return { value: DEFAULT_CONSULTATION_TYPE, error: 'Type de consultation invalide' };
+  }
+  return { value: normalizeConsultationType(raw) as PrismaConsultationType };
+}
+
+function normalizeTextOrNull(raw: unknown): string | null {
+  if (raw === undefined || raw === null) return null;
+  const text = String(raw).trim();
+  return text === '' ? null : text;
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -45,7 +81,7 @@ export async function GET(
 
     const rows = await prisma.consultation.findMany({
       where: { patientId: id },
-      orderBy: { date: 'asc' },
+      orderBy: [{ date: 'desc' }, { id: 'desc' }],
       include: {
         author: {
           select: {
@@ -92,14 +128,14 @@ export async function POST(
       tensionRaw === undefined || tensionRaw === null || String(tensionRaw).trim() === ''
         ? null
         : String(tensionRaw).trim();
-    const diagnostic =
-      body.diagnostic === undefined || body.diagnostic === null
-        ? null
-        : String(body.diagnostic).trim() || null;
-    const notes =
-      body.notes === undefined || body.notes === null
-        ? null
-        : String(body.notes).trim() || null;
+    const consultationType = parseConsultationType(body.type);
+    if (consultationType.error) {
+      return NextResponse.json({ error: consultationType.error }, { status: 400 });
+    }
+
+    const motif = normalizeTextOrNull(body.motif);
+    const diagnostic = normalizeTextOrNull(body.diagnostic);
+    const notes = normalizeTextOrNull(body.notes);
     const source =
       body.source === 'OUT_OF_APPOINTMENT' ? 'OUT_OF_APPOINTMENT' : 'MANUAL';
 
@@ -124,10 +160,16 @@ export async function POST(
       );
     }
 
+    const dateParsed = parseConsultationDate(body.date);
+    if (dateParsed.error) {
+      return NextResponse.json({ error: dateParsed.error }, { status: 400 });
+    }
+
     const hasAny =
       glycemie !== null ||
       battementCoeur !== null ||
       tensionArterielle !== null ||
+      motif !== null ||
       diagnostic !== null ||
       notes !== null;
 
@@ -138,15 +180,11 @@ export async function POST(
       );
     }
 
-    const dateRaw = body.date as string | undefined;
-    const date = dateRaw ? new Date(dateRaw) : new Date();
-    if (Number.isNaN(date.getTime())) {
-      return NextResponse.json({ error: 'Date invalide' }, { status: 400 });
-    }
-
     const row = await prisma.consultation.create({
       data: {
         patientId: id,
+        type: consultationType.value,
+        motif,
         glycemie,
         tensionArterielle,
         battementCoeur,
@@ -154,7 +192,7 @@ export async function POST(
         notes,
         source,
         authorId: auth.staff.id,
-        date,
+        date: dateParsed.value ?? new Date(),
       },
       include: {
         author: {

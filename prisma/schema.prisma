@@ -66,6 +66,21 @@ enum ConsultationSource {
   OUT_OF_APPOINTMENT
 }
 
+enum ConsultationType {
+  FIRST_CONSULTATION
+  CONSULTATION
+  CONTROL
+  FOLLOW_UP
+  EMERGENCY
+  VACCINATION
+  ANNUAL_VISIT
+  PRESCRIPTION_RENEWAL
+  TELECONSULTATION
+  EXAM_RESULT
+  MEDICAL_CERTIFICATE
+  OTHER
+}
+
 enum Sexe {
   MASCULIN
   FEMININ
@@ -351,6 +366,8 @@ model Consultation {
   id                 String   @id @default(uuid())
   patientId          String
   patient            Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  type               ConsultationType @default(CONSULTATION)
+  motif              String?  @db.Text
   /// Glycémie (mg/dL).
   glycemie           Float?
   /// Tension artérielle (ex. 120/80 mmHg).

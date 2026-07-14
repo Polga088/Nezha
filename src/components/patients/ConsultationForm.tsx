@@ -18,6 +18,15 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   Form,
   FormControl,
@@ -26,16 +35,22 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
+import {
+  CONSULTATION_TYPE_OPTIONS,
+  DEFAULT_CONSULTATION_TYPE,
+} from '@/lib/consultation-types';
 
 const TA_OPTIONAL = z
   .string()
-  .transform((s) => (s == null ? '' : String(s).trim()))
-  .refine((s) => s === '' || /^\d{2,3}\/\d{2,3}$/.test(s), {
+  .transform((value) => (value == null ? '' : String(value).trim()))
+  .refine((value) => value === '' || /^\d{2,3}\/\d{2,3}$/.test(value), {
     message: 'Format xxx/xx (ex. 120/80)',
   });
 
 const consultationSchema = z
   .object({
+    type: z.string().optional(),
+    motif: z.string().optional(),
     glycemie: z.string().optional(),
     tensionArterielle: TA_OPTIONAL,
     battementCoeur: z.string().optional(),
@@ -53,6 +68,7 @@ const consultationSchema = z
         ? null
         : parseInt(data.battementCoeur!, 10);
     const ta = data.tensionArterielle?.trim() || '';
+    const motif = data.motif?.trim() || '';
     const diag = data.diagnostic?.trim() || '';
     const notes = data.notes?.trim() || '';
 
@@ -75,14 +91,15 @@ const consultationSchema = z
       (g != null && Number.isFinite(g)) ||
       (b != null && Number.isFinite(b)) ||
       ta !== '' ||
+      motif !== '' ||
       diag !== '' ||
       notes !== '';
 
     if (!hasAny) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: 'Au moins une constante, un diagnostic ou des notes',
-        path: ['diagnostic'],
+        message: 'Au moins un motif, une constante, un diagnostic ou des notes',
+        path: ['motif'],
       });
     }
   });
@@ -95,32 +112,44 @@ export type ConsultationFormProps = {
   triggerClassName?: string;
 };
 
+const nowValue = () => new Date().toISOString().slice(0, 16);
+
 export function ConsultationForm({ patientId, onSaved, triggerClassName }: ConsultationFormProps) {
   const [open, setOpen] = useState(false);
+  const [historicalDateEnabled, setHistoricalDateEnabled] = useState(false);
 
   const form = useForm<ConsultationFormValues>({
     resolver: zodResolver(consultationSchema),
     defaultValues: {
+      type: DEFAULT_CONSULTATION_TYPE,
+      motif: '',
       glycemie: '',
       tensionArterielle: '',
       battementCoeur: '',
       diagnostic: '',
       notes: '',
-      date: new Date().toISOString().slice(0, 16),
+      date: nowValue(),
     },
   });
+
+  const resetForm = () => {
+    setHistoricalDateEnabled(false);
+    form.reset({
+      type: DEFAULT_CONSULTATION_TYPE,
+      motif: '',
+      glycemie: '',
+      tensionArterielle: '',
+      battementCoeur: '',
+      diagnostic: '',
+      notes: '',
+      date: nowValue(),
+    });
+  };
 
   const handleOpenChange = (next: boolean) => {
     setOpen(next);
     if (!next) {
-      form.reset({
-        glycemie: '',
-        tensionArterielle: '',
-        battementCoeur: '',
-        diagnostic: '',
-        notes: '',
-        date: new Date().toISOString().slice(0, 16),
-      });
+      resetForm();
     }
   };
 
@@ -135,26 +164,37 @@ export function ConsultationForm({ patientId, onSaved, triggerClassName }: Consu
         : parseInt(values.battementCoeur!, 10);
     const tensionArterielle =
       values.tensionArterielle?.trim() === '' ? null : values.tensionArterielle!.trim();
+    const motif = values.motif?.trim() || null;
     const diagnostic = values.diagnostic?.trim() || null;
     const notes = values.notes?.trim() || null;
 
-    const local = new Date(values.date);
-    if (Number.isNaN(local.getTime())) {
+    const date = new Date(values.date);
+    if (Number.isNaN(date.getTime())) {
       toast.error('Date invalide');
       return;
     }
+    if (historicalDateEnabled && date.getTime() > Date.now()) {
+      toast.error('La date historique ne peut pas être dans le futur');
+      return;
+    }
+
+    const consultationType = String(values.type ?? DEFAULT_CONSULTATION_TYPE).trim();
 
     try {
       const res = await fetch(`/api/patients/${patientId}/consultations`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
         body: JSON.stringify({
+          type: consultationType,
+          motif,
           glycemie,
           battementCoeur,
           tensionArterielle,
           diagnostic,
           notes,
-          date: local.toISOString(),
+          date: date.toISOString(),
+          source: 'OUT_OF_APPOINTMENT',
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -165,18 +205,20 @@ export function ConsultationForm({ patientId, onSaved, triggerClassName }: Consu
       toast.success('Consultation enregistrée');
       onSaved?.();
       setOpen(false);
-      form.reset({
-        glycemie: '',
-        tensionArterielle: '',
-        battementCoeur: '',
-        diagnostic: '',
-        notes: '',
-        date: new Date().toISOString().slice(0, 16),
-      });
+      resetForm();
     } catch {
       toast.error('Erreur réseau');
     }
   });
+
+  const toggleHistoricalDate = (enabled: boolean) => {
+    setHistoricalDateEnabled(enabled);
+    if (enabled) {
+      form.setValue('date', nowValue(), { shouldDirty: true, shouldValidate: true });
+    } else {
+      form.setValue('date', nowValue(), { shouldDirty: true, shouldValidate: true });
+    }
+  };
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -194,29 +236,97 @@ export function ConsultationForm({ patientId, onSaved, triggerClassName }: Consu
           Saisie constantes
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-lg max-h-[min(90vh,640px)] overflow-y-auto border-slate-200">
+      <DialogContent className="sm:max-w-xl max-h-[min(90vh,720px)] overflow-y-auto border-slate-200">
         <DialogHeader>
-          <DialogTitle className="text-slate-900">Constantes & diagnostic</DialogTitle>
+          <DialogTitle className="text-slate-900">Consultation historique</DialogTitle>
           <DialogDescription>
-            Glycémie (mg/dL), tension (mmHg), BPM — diagnostic et notes libres.
+            Type de consultation, motif, date antérieure, constantes, diagnostic et notes libres.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="date"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Date et heure</FormLabel>
-                  <FormControl>
-                    <Input type="datetime-local" {...field} className="font-mono text-sm" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <FormField
+                control={form.control}
+                name="type"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Type de consultation</FormLabel>
+                    <Select
+                      value={field.value?.trim() ? field.value : DEFAULT_CONSULTATION_TYPE}
+                      onValueChange={field.onChange}
+                    >
+                      <FormControl>
+                        <SelectTrigger className="bg-white">
+                          <SelectValue placeholder="Choisir un type" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {CONSULTATION_TYPE_OPTIONS.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="motif"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Motif</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="Motif de la consultation" autoComplete="off" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-3">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <Label htmlFor="historical-date" className="text-sm font-medium text-slate-800">
+                    Ajouter une consultation antérieure
+                  </Label>
+                  <p className="text-xs text-slate-500">
+                    Laissez désactivé pour enregistrer à l’instant.
+                  </p>
+                </div>
+                <Switch
+                  id="historical-date"
+                  checked={historicalDateEnabled}
+                  onCheckedChange={toggleHistoricalDate}
+                />
+              </div>
+              <div className="mt-3">
+                <FormField
+                  control={form.control}
+                  name="date"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Date et heure</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="datetime-local"
+                          {...field}
+                          disabled={!historicalDateEnabled}
+                          className="font-mono text-sm bg-white"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <FormField
                 control={form.control}
                 name="glycemie"
@@ -290,6 +400,7 @@ export function ConsultationForm({ patientId, onSaved, triggerClassName }: Consu
                 )}
               />
             </div>
+
             <FormField
               control={form.control}
               name="diagnostic"
