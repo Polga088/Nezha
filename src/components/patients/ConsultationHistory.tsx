@@ -4,9 +4,20 @@ import { useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale/fr';
 import { Activity, ChevronDown, ChevronRight, Heart, Thermometer } from 'lucide-react';
+import { toast } from 'sonner';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { ConsultationForm } from '@/components/patients/ConsultationForm';
 import { getGlycemiaBadgeClassName, getTensionBadgeClassName } from '@/lib/vitals-utils';
 import { getConsultationTypeLabel } from '@/lib/consultation-types';
@@ -46,11 +57,34 @@ export function ConsultationHistory({
   );
   const [visibleCount, setVisibleCount] = useState(5);
   const [openId, setOpenId] = useState<string | null>(newestFirst[0]?.id ?? null);
+  const [currentRole, setCurrentRole] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{
+    consultationId: string;
+    field: 'notes' | 'diagnostic';
+  } | null>(null);
+  const [deletePending, setDeletePending] = useState(false);
 
   useEffect(() => {
     setVisibleCount(5);
     setOpenId(newestFirst[0]?.id ?? null);
   }, [newestFirst]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/auth/me', { credentials: 'same-origin' })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!cancelled) {
+          setCurrentRole(typeof data?.role === 'string' ? String(data.role).toUpperCase() : null);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setCurrentRole(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const visibleConsultations = newestFirst.slice(0, visibleCount);
   const hasMore = visibleCount < newestFirst.length;
@@ -69,6 +103,40 @@ export function ConsultationHistory({
   };
 
   const consultationTypeLabel = (value?: string) => getConsultationTypeLabel(value);
+  const canManageConsultations = currentRole === 'DOCTOR' || currentRole === 'ADMIN';
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
+    setDeletePending(true);
+    try {
+      const res = await fetch(
+        `/api/patients/${patientId}/consultations/${deleteTarget.consultationId}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body:
+            deleteTarget.field === 'notes'
+              ? JSON.stringify({ notes: null })
+              : JSON.stringify({ diagnostic: null }),
+        }
+      );
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(typeof data.error === 'string' ? data.error : 'Suppression impossible');
+        return;
+      }
+      await onConsultationSaved?.();
+      toast.success(
+        deleteTarget.field === 'notes' ? 'Note supprimée' : 'Diagnostic supprimé'
+      );
+      setDeleteTarget(null);
+    } catch {
+      toast.error('Erreur réseau');
+    } finally {
+      setDeletePending(false);
+    }
+  };
 
   return (
     <div className="space-y-3 rounded-xl border border-slate-200/80 bg-white/80 p-4 shadow-sm">
@@ -221,18 +289,40 @@ export function ConsultationHistory({
                         </div>
                       ) : null}
                       <div className="mt-4 flex flex-wrap gap-2">
-                        <ConsultationForm
-                          patientId={patientId}
-                          consultationId={c.id}
-                          initialValues={c}
-                          onSaved={onConsultationSaved}
-                          triggerLabel="Modifier"
-                          dialogTitle="Modifier la consultation"
-                          dialogDescription="Actualisez le type, la date, le motif, les constantes, le diagnostic et les notes."
-                          submitLabel="Enregistrer les modifications"
-                          submitPendingLabel="Enregistrement…"
-                          triggerClassName="border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                        />
+                        {canManageConsultations && c.notes ? (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setDeleteTarget({ consultationId: c.id, field: 'notes' })}
+                          >
+                            Supprimer la note
+                          </Button>
+                        ) : null}
+                        {canManageConsultations && c.diagnostic ? (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setDeleteTarget({ consultationId: c.id, field: 'diagnostic' })}
+                          >
+                            Supprimer le diagnostic
+                          </Button>
+                        ) : null}
+                        {canManageConsultations ? (
+                          <ConsultationForm
+                            patientId={patientId}
+                            consultationId={c.id}
+                            initialValues={c}
+                            onSaved={onConsultationSaved}
+                            triggerLabel="Modifier"
+                            dialogTitle="Modifier la consultation"
+                            dialogDescription="Actualisez le type, la date, le motif, les constantes, le diagnostic et les notes."
+                            submitLabel="Enregistrer les modifications"
+                            submitPendingLabel="Enregistrement…"
+                            triggerClassName="border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                          />
+                        ) : null}
                         <Button type="button" variant="outline" size="sm" onClick={() => setOpenId(null)}>
                           Masquer les détails
                         </Button>
@@ -258,6 +348,33 @@ export function ConsultationHistory({
           </div>
         </div>
       )}
+
+      <AlertDialog open={deleteTarget !== null} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent className="sm:max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {deleteTarget?.field === 'notes' ? 'Supprimer la note ?' : 'Supprimer le diagnostic ?'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteTarget?.field === 'notes'
+                ? 'Confirmez-vous la suppression définitive de cette note médicale ? Cette action est irréversible.'
+                : 'Confirmez-vous la suppression définitive de ce diagnostic ? Cette action est irréversible.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deletePending}>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={deletePending}
+              onClick={(e) => {
+                e.preventDefault();
+                void handleConfirmDelete();
+              }}
+            >
+              {deletePending ? 'Suppression…' : 'Supprimer définitivement'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
