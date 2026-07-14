@@ -35,16 +35,28 @@ export async function PublicHeader() {
           </span>
         </Link>
 
-        <Button
-          variant="ghost"
-          size="sm"
-          className="shrink-0 text-xs font-medium text-slate-500 hover:text-slate-800 sm:text-sm"
-          asChild
-        >
-          <Link href="/login" className="gap-1.5">
-            Accès staff
-          </Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="shrink-0 text-xs font-medium text-slate-500 hover:text-slate-800 sm:text-sm"
+            asChild
+          >
+            <Link href="/reservation" className="gap-1.5">
+              Réserver
+            </Link>
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="shrink-0 text-xs font-medium text-slate-500 hover:text-slate-800 sm:text-sm"
+            asChild
+          >
+            <Link href="/login" className="gap-1.5">
+              Accès staff
+            </Link>
+          </Button>
+        </div>
       </div>
     </header>
   );

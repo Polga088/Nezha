@@ -39,6 +39,7 @@ type AppointmentApiRow = {
   date_heure: string;
   color?: string | null;
   appointmentType: AppointmentType;
+  reservationSource?: string | null;
   patient?: { nom?: string | null } | null;
 };
 
@@ -130,7 +131,9 @@ function AgendaPageContent() {
     if (!Array.isArray(appointmentsRaw)) return [];
     return (appointmentsRaw as AppointmentApiRow[]).map((a) => ({
       id: a.id,
-      title: `${a.patient?.nom ?? '?'} - ${a.motif}`,
+      title:
+        `${a.reservationSource === 'RESERVATION_PUBLIC' ? 'Réservation en ligne · ' : ''}` +
+        `${a.patient?.nom ?? '?'} - ${a.motif}`,
       start: new Date(a.date_heure),
       end: new Date(new Date(a.date_heure).getTime() + 30 * 60000),
       color: a.color ?? colorForAppointmentType(a.appointmentType),
