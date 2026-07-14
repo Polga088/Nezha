@@ -199,7 +199,12 @@ export async function PUT(
         }),
         ...(email !== undefined && { email: email === '' ? null : String(email) }),
         ...(adresse !== undefined && { adresse: adresse === '' ? null : String(adresse) }),
-        ...(allergies !== undefined && { allergies: allergies === '' ? null : String(allergies) }),
+        ...(allergies !== undefined && {
+          allergies:
+            allergies === null || String(allergies).trim() === ''
+              ? null
+              : String(allergies).trim(),
+        }),
         ...(antecedents !== undefined && { antecedents: antecedents === '' ? null : String(antecedents) }),
         ...(cin !== undefined && { cin: cin === '' ? null : String(cin).trim() }),
         ...(sexeRaw !== undefined && { sexe: sexe ?? null }),
