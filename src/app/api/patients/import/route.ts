@@ -14,6 +14,8 @@ import {
   parseImportDateValue,
   parsePatientImportRows,
   resolveInsuranceDefinition,
+  resolvePatientIdentityDecision,
+  validatePatientImportFileSize,
   type PatientImportMode,
   type PatientImportReportRow,
   type PatientImportSummary,
@@ -218,11 +220,6 @@ function mapCanonicalCodeToName(code: string): string {
   return def?.name ?? code;
 }
 
-function compareMaybeExisting(a: string | null | undefined, b: string | null | undefined): boolean {
-  if (!a || !b) return false;
-  return a === b;
-}
-
 type ImportedRow = {
   line: number;
   id: string | null;
@@ -384,40 +381,17 @@ function normalizeImportedRow(raw: ParsedPatientRow, line: number): ImportedRow 
   };
 }
 
-function resolveDuplicateKey(
-  row: ImportedRow,
-  maps: {
-    byId: Map<string, { id: string }>;
-    byCin: Map<string, { id: string }>;
-    byEmail: Map<string, { id: string }>;
-  }
-): { patientId: string | null; source: 'db' | 'file' | null; key: 'id' | 'cin' | 'email' | null } {
-  if (row.id) {
-    const match = maps.byId.get(row.id);
-    if (match) return { patientId: match.id, source: 'db', key: 'id' };
-  }
-  if (row.cin) {
-    const match = maps.byCin.get(row.cin);
-    if (match) return { patientId: match.id, source: 'db', key: 'cin' };
-  }
-  if (row.email) {
-    const match = maps.byEmail.get(row.email);
-    if (match) return { patientId: match.id, source: 'db', key: 'email' };
-  }
-  return { patientId: null, source: null, key: null };
-}
-
 function updateMapsFromPatient(
   maps: {
-    byId: Map<string, { id: string }>;
-    byCin: Map<string, { id: string }>;
-    byEmail: Map<string, { id: string }>;
+    byId: Map<string, { id: string; cin: string | null; email: string | null }>;
+    byCin: Map<string, { id: string; cin: string | null; email: string | null }>;
+    byEmail: Map<string, { id: string; cin: string | null; email: string | null }>;
   },
   patient: { id: string; cin: string | null; email: string | null }
 ) {
-  maps.byId.set(patient.id, { id: patient.id });
-  if (patient.cin) maps.byCin.set(patient.cin, { id: patient.id });
-  if (patient.email) maps.byEmail.set(patient.email, { id: patient.id });
+  maps.byId.set(patient.id, patient);
+  if (patient.cin) maps.byCin.set(patient.cin, patient);
+  if (patient.email) maps.byEmail.set(patient.email, patient);
 }
 
 function patientRowLabel(row: ImportedRow): { nom: string | null; prenom: string | null } {
@@ -472,6 +446,10 @@ export async function POST(request: NextRequest) {
     }
 
     const mode = normalizeMode(form.get('mode'));
+    const fileTooLarge = validatePatientImportFileSize(file.size);
+    if (fileTooLarge) {
+      return NextResponse.json({ error: fileTooLarge.message }, { status: fileTooLarge.status });
+    }
     const rows = await parsePatientImportRows(file);
     const summary = createEmptySummary();
     const reportRows: PatientImportReportRow[] = [];
@@ -565,9 +543,9 @@ export async function POST(request: NextRequest) {
     });
 
     const maps = {
-      byId: new Map<string, { id: string }>(),
-      byCin: new Map<string, { id: string }>(),
-      byEmail: new Map<string, { id: string }>(),
+      byId: new Map<string, { id: string; cin: string | null; email: string | null }>(),
+      byCin: new Map<string, { id: string; cin: string | null; email: string | null }>(),
+      byEmail: new Map<string, { id: string; cin: string | null; email: string | null }>(),
     };
     for (const patient of existingPatients) {
       updateMapsFromPatient(maps, {
@@ -599,11 +577,26 @@ export async function POST(request: NextRequest) {
         duplicateHints.push({ kind: 'email', key: normalizedEmail, line: seenInFile.byEmail.get(normalizedEmail)! });
       }
 
-      const existingMatch = resolveDuplicateKey(row, maps);
-      const inDb = existingMatch.patientId !== null;
+      const identityDecision = resolvePatientIdentityDecision({
+        id: normalizedId ? maps.byId.get(normalizedId) ?? null : null,
+        cin: normalizedCin ? maps.byCin.get(normalizedCin) ?? null : null,
+        email: normalizedEmail ? maps.byEmail.get(normalizedEmail) ?? null : null,
+      });
+
+      if (identityDecision.conflict) {
+        addReportRow(
+          reportRows,
+          buildRowReport(row, 'REJECTED', 'identité', null, identityDecision.conflict.message),
+          summary
+        );
+        continue;
+      }
+
+      const existingMatch = identityDecision.selected;
+      const inDb = existingMatch !== null;
 
       if (mode === 'CREATE_ONLY' && (inDb || duplicateHints.length > 0)) {
-        const hint = duplicateHints[0] ?? (existingMatch.key ? { kind: existingMatch.key, key: '', line: row.line } : null);
+        const hint = duplicateHints[0] ?? (existingMatch ? { kind: existingMatch.field, key: '', line: row.line } : null);
         addReportRow(
           reportRows,
           buildRowReport(
@@ -614,7 +607,7 @@ export async function POST(request: NextRequest) {
             hint?.line
               ? `Doublon détecté à la ligne ${hint.line}`
               : inDb
-                ? `Doublon déjà présent en base (${existingMatch.key ?? 'clé inconnue'})`
+                ? `Doublon déjà présent en base (${existingMatch?.field ?? 'clé inconnue'})`
                 : 'Doublon détecté'
           ),
           summary
@@ -623,13 +616,14 @@ export async function POST(request: NextRequest) {
       }
 
       if (mode === 'SKIP' && (inDb || duplicateHints.length > 0)) {
+        const matched = existingMatch;
         const sourceMessage =
           duplicateHints.length > 0
             ? `Doublon dans le fichier importé (ligne ${duplicateHints[0].line})`
-            : `Doublon déjà présent en base (${existingMatch.key ?? 'clé inconnue'})`;
+            : `Doublon déjà présent en base (${matched?.field ?? 'clé inconnue'})`;
         addReportRow(
           reportRows,
-          buildRowReport(row, 'SKIPPED', existingMatch.key, existingMatch.patientId, sourceMessage),
+          buildRowReport(row, 'SKIPPED', matched?.field ?? null, matched?.patient.id ?? null, sourceMessage),
           summary
         );
         continue;
@@ -681,9 +675,9 @@ export async function POST(request: NextRequest) {
       };
 
       try {
-        if (existingMatch.patientId && mode === 'UPDATE') {
+        if (existingMatch !== null && mode === 'UPDATE') {
           const current = await prisma.patient.findUnique({
-            where: { id: existingMatch.patientId },
+            where: { id: existingMatch.patient.id },
             select: {
               id: true,
               cin: true,
@@ -718,7 +712,7 @@ export async function POST(request: NextRequest) {
             matriculeAssurance: baseData.matriculeAssurance,
           });
           const updated = await prisma.patient.update({
-            where: { id: existingMatch.patientId },
+            where: { id: existingMatch.patient.id },
             data: updateData,
             select: { id: true, cin: true, email: true },
           });
@@ -738,15 +732,15 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
-        if (existingMatch.patientId && mode !== 'UPDATE') {
+        if (existingMatch !== null && mode !== 'UPDATE') {
           addReportRow(
             reportRows,
             buildRowReport(
               row,
               'SKIPPED',
-              existingMatch.key,
-              existingMatch.patientId,
-              `Doublon déjà présent en base (${existingMatch.key ?? 'clé inconnue'})`
+              existingMatch.field,
+              existingMatch.patient.id,
+              `Doublon déjà présent en base (${existingMatch.field ?? 'clé inconnue'})`
             ),
             summary
           );

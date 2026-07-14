@@ -26,10 +26,39 @@ export type PatientImportSummary = {
 
 export type ParsedPatientRow = Record<string, unknown>;
 
+export const PATIENT_IMPORT_MAX_FILE_BYTES = 10 * 1024 * 1024;
+
 type InsuranceDefinition = {
   code: string;
   name: string;
 };
+
+export type PatientIdentityCandidate = {
+  id: string;
+  cin: string | null;
+  email: string | null;
+};
+
+export type PatientIdentityMatches = {
+  id: PatientIdentityCandidate | null;
+  cin: PatientIdentityCandidate | null;
+  email: PatientIdentityCandidate | null;
+};
+
+export type PatientIdentityDecision =
+  | {
+      conflict: null;
+      selected: {
+        field: 'id' | 'cin' | 'email';
+        patient: PatientIdentityCandidate;
+      } | null;
+    }
+  | {
+      conflict: {
+        message: string;
+      };
+      selected: null;
+    };
 
 export const PATIENT_IMPORT_INSURANCE_DEFINITIONS: InsuranceDefinition[] = [
   { code: 'AUCUNE', name: 'Aucune' },
@@ -403,4 +432,68 @@ export function isInsuranceMoveCandidate(raw: unknown): boolean {
 export function normalizeFreeTextValue(raw: unknown): string | null {
   const value = normalizeEmptyValue(raw);
   return value === null ? null : value;
+}
+
+export function resolvePatientIdentityDecision(matches: PatientIdentityMatches): PatientIdentityDecision {
+  const found = [
+    matches.id ? { field: 'id' as const, patient: matches.id } : null,
+    matches.cin ? { field: 'cin' as const, patient: matches.cin } : null,
+    matches.email ? { field: 'email' as const, patient: matches.email } : null,
+  ].filter((item): item is { field: 'id' | 'cin' | 'email'; patient: PatientIdentityCandidate } => item !== null);
+
+  if (found.length === 0) {
+    return { conflict: null, selected: null };
+  }
+
+  const distinctPatientIds = new Set(found.map((item) => item.patient.id));
+  if (distinctPatientIds.size <= 1) {
+    return { conflict: null, selected: found[0] };
+  }
+
+  const cinMatch = matches.cin;
+  const emailMatch = matches.email;
+  if (cinMatch && emailMatch && cinMatch.id !== emailMatch.id) {
+    return {
+      conflict: {
+        message: 'Conflit d’identité : le CIN correspond à un patient différent de celui correspondant à l’email.',
+      },
+      selected: null,
+    };
+  }
+
+  const idMatch = matches.id;
+  if (idMatch && cinMatch && idMatch.id !== cinMatch.id) {
+    return {
+      conflict: {
+        message: 'Conflit d’identité : le id correspond à un patient différent de celui correspondant au CIN.',
+      },
+      selected: null,
+    };
+  }
+
+  if (idMatch && emailMatch && idMatch.id !== emailMatch.id) {
+    return {
+      conflict: {
+        message: 'Conflit d’identité : le id correspond à un patient différent de celui correspondant à l’email.',
+      },
+      selected: null,
+    };
+  }
+
+  return {
+    conflict: {
+      message: 'Conflit d’identité : plusieurs identifiants correspondent à des patients différents.',
+    },
+    selected: null,
+  };
+}
+
+export function validatePatientImportFileSize(fileSize: number): { status: 413; message: string } | null {
+  if (fileSize > PATIENT_IMPORT_MAX_FILE_BYTES) {
+    return {
+      status: 413,
+      message: 'Fichier trop volumineux — taille maximale autorisée : 10 Mo.',
+    };
+  }
+  return null;
 }
