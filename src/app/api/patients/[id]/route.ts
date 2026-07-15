@@ -23,6 +23,23 @@ function normalizePatientRouteId(raw: string): string {
   return trimmed;
 }
 
+function normalizeNullableText(value: unknown) {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+
+  const text = String(value).trim();
+
+  if (
+    text === '' ||
+    text.toLowerCase() === 'null' ||
+    text.toLowerCase() === 'undefined'
+  ) {
+    return null;
+  }
+
+  return text;
+}
+
 const PATIENT_GET_INCLUDE = {
   appointments: {
     orderBy: { date_heure: 'desc' as const },
@@ -92,7 +109,11 @@ export async function GET(
       return NextResponse.json({}, { status: 200 });
     }
 
-    return NextResponse.json(patient);
+    return NextResponse.json({
+      ...patient,
+      allergies: normalizeNullableText(patient.allergies),
+      antecedents: normalizeNullableText(patient.antecedents),
+    });
   } catch (error) {
     console.error('[GET /api/patients/:id]', error);
     return NextResponse.json({ error: 'Erreur lors de la récupération du patient' }, { status: 500 });
@@ -190,23 +211,17 @@ export async function PUT(
         ...(prenom !== undefined && { prenom: String(prenom).trim() }),
         ...(date_naissance && { date_naissance: new Date(date_naissance) }),
         ...(tel !== undefined && {
-          tel:
-            tel === null || tel === ''
-              ? null
-              : String(tel).trim() === ''
-                ? null
-                : String(tel).trim(),
+          tel: normalizeNullableText(tel),
         }),
-        ...(email !== undefined && { email: email === '' ? null : String(email) }),
-        ...(adresse !== undefined && { adresse: adresse === '' ? null : String(adresse) }),
+        ...(email !== undefined && { email: normalizeNullableText(email) }),
+        ...(adresse !== undefined && { adresse: normalizeNullableText(adresse) }),
         ...(allergies !== undefined && {
-          allergies:
-            allergies === null || String(allergies).trim() === ''
-              ? null
-              : String(allergies).trim(),
+          allergies: normalizeNullableText(allergies),
         }),
-        ...(antecedents !== undefined && { antecedents: antecedents === '' ? null : String(antecedents) }),
-        ...(cin !== undefined && { cin: cin === '' ? null : String(cin).trim() }),
+        ...(antecedents !== undefined && {
+          antecedents: normalizeNullableText(antecedents),
+        }),
+        ...(cin !== undefined && { cin: normalizeNullableText(cin) }),
         ...(sexeRaw !== undefined && { sexe: sexe ?? null }),
         ...(groupe !== undefined && {
           groupeSanguin:
@@ -218,7 +233,11 @@ export async function PUT(
       },
     });
 
-    return NextResponse.json(updatedPatient);
+    return NextResponse.json({
+      ...updatedPatient,
+      allergies: normalizeNullableText(updatedPatient.allergies),
+      antecedents: normalizeNullableText(updatedPatient.antecedents),
+    });
   } catch (error) {
     console.error('[PUT /api/patients/:id]', error);
     return NextResponse.json({ error: 'Erreur lors de la mise à jour du patient' }, { status: 500 });

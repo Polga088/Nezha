@@ -10,15 +10,26 @@ const ALLERGY_PATTERN =
 const DIABETE_PATTERN =
   /\b(diabète|diabete|diabetes|dt1|dt2|type\s*1|type\s*2|insulin|insuline|glycémie|glycemie|hba1c|antidiabétique)\b/i;
 
+function normalizeClinicalText(value: string | null | undefined): string | null {
+  if (typeof value !== 'string') return null;
+  const text = value.trim();
+  if (!text) return null;
+  const lowered = text.toLowerCase();
+  if (lowered === 'null' || lowered === 'undefined') return null;
+  return text;
+}
+
 export function extractClinicalAlertLabels(
   notes: string,
   allergies: string | null | undefined,
   antecedents: string | null | undefined
 ): string[] {
   const labels: string[] = [];
-  const blob = `${notes}\n${allergies ?? ''}\n${antecedents ?? ''}`;
+  const cleanAllergies = normalizeClinicalText(allergies);
+  const cleanAntecedents = normalizeClinicalText(antecedents);
+  const blob = `${notes}\n${cleanAllergies ?? ''}\n${cleanAntecedents ?? ''}`;
 
-  const hasAllergyField = Boolean(allergies?.trim());
+  const hasAllergyField = Boolean(cleanAllergies);
   const hasAllergyKeyword = ALLERGY_PATTERN.test(blob);
   if (hasAllergyField || hasAllergyKeyword) {
     labels.push('Allergies');

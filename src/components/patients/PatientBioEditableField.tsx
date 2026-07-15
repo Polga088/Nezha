@@ -28,6 +28,15 @@ const boxClass: Record<PatientBioEditableFieldProps['variant'], string> = {
 const emptyClass =
   'text-sm text-slate-400 italic bg-slate-50 rounded-lg p-3 border border-slate-100 min-h-[3rem]';
 
+function normalizeDisplayText(value: string | null | undefined): string | null {
+  if (typeof value !== 'string') return null;
+  const text = value.trim();
+  if (!text) return null;
+  const lowered = text.toLowerCase();
+  if (lowered === 'null' || lowered === 'undefined') return null;
+  return text;
+}
+
 export const PatientBioEditableField = ({
   patientId,
   field,
@@ -44,7 +53,7 @@ export const PatientBioEditableField = ({
     if (!isEditing) setDraft(value ?? '');
   }, [value, isEditing]);
 
-  const displayText = value?.trim() ? value : null;
+  const displayText = normalizeDisplayText(value);
   const emptyLabel =
     field === 'allergies'
       ? 'Aucune allergie documentée.'
