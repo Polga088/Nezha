@@ -60,15 +60,23 @@ export function ConsultationEditor({
   const [saving, setSaving] = useState(false);
 
   const lastSavedRef = useRef({ notes: initialNotesMedecin, diagnostic: initialDiagnostic });
+  const lastSyncedAppointmentIdRef = useRef<string | null>(appointmentId);
+  const suppressNextPropSyncRef = useRef(false);
   const hasDraftContent = notes.trim().length > 0 || diagnostic.trim().length > 0;
 
   useEffect(() => {
+    const appointmentChanged = lastSyncedAppointmentIdRef.current !== appointmentId;
+    if (!appointmentChanged && suppressNextPropSyncRef.current) {
+      return;
+    }
     setNotes(initialNotesMedecin);
     setDiagnostic(initialDiagnostic);
     lastSavedRef.current = {
       notes: initialNotesMedecin,
       diagnostic: initialDiagnostic,
     };
+    lastSyncedAppointmentIdRef.current = appointmentId;
+    suppressNextPropSyncRef.current = false;
     onNotesPreviewChange?.(initialNotesMedecin);
     onDiagnosticPreviewChange?.(initialDiagnostic);
   }, [
@@ -126,6 +134,7 @@ export function ConsultationEditor({
       onNotesPreviewChange?.('');
       onDiagnosticPreviewChange?.('');
       lastSavedRef.current = { notes: '', diagnostic: '' };
+      suppressNextPropSyncRef.current = true;
       try {
         await onSaved?.();
       } catch {

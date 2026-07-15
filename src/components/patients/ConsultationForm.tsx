@@ -40,6 +40,7 @@ import {
   DEFAULT_CONSULTATION_TYPE,
   type ConsultationTypeValue,
 } from '@/lib/consultation-types';
+import type { PatientConsultationRow } from '@/components/patients/ConsultationHistory';
 
 const TA_OPTIONAL = z
   .string()
@@ -121,6 +122,7 @@ type ConsultationFormData = {
 export type ConsultationFormProps = {
   patientId: string;
   onSaved?: () => void | Promise<void>;
+  onConsultationUpdated?: (updatedConsultation: PatientConsultationRow) => void | Promise<void>;
   triggerClassName?: string;
   triggerLabel?: string;
   dialogTitle?: string;
@@ -151,6 +153,7 @@ export function ConsultationForm({
   initialValues,
   submitLabel = consultationId ? 'Enregistrer les modifications' : 'Enregistrer',
   submitPendingLabel = 'Enregistrement…',
+  onConsultationUpdated,
 }: ConsultationFormProps) {
   const isEditing = consultationId != null;
   const [open, setOpen] = useState(false);
@@ -253,6 +256,9 @@ export function ConsultationForm({
       if (!res.ok) {
         toast.error(typeof data.error === 'string' ? data.error : 'Enregistrement impossible');
         return;
+      }
+      if (data && typeof data === 'object' && 'id' in data) {
+        await onConsultationUpdated?.(data as PatientConsultationRow);
       }
       await onSaved?.();
       toast.success(isEditing ? 'Consultation modifiée' : 'Consultation enregistrée');

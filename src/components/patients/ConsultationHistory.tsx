@@ -37,12 +37,30 @@ export type PatientConsultationRow = {
   date: string;
 };
 
+function hasRenderableText(value: string | null | undefined): boolean {
+  if (typeof value !== 'string') return false;
+  const text = value.trim().toLowerCase();
+  return text !== '' && text !== 'null' && text !== 'undefined';
+}
+
+export function hasClinicalContent(consultation: PatientConsultationRow): boolean {
+  return (
+    hasRenderableText(consultation.motif ?? null) ||
+    hasRenderableText(consultation.notes) ||
+    hasRenderableText(consultation.diagnostic) ||
+    consultation.glycemie != null ||
+    hasRenderableText(consultation.tensionArterielle) ||
+    consultation.battementCoeur != null
+  );
+}
+
 type Props = {
   /** Données triées par date croissante (API GET) — affichage du plus récent au plus ancien. */
   consultations: PatientConsultationRow[];
   patientId: string;
   headerAction?: React.ReactNode;
   onConsultationSaved?: () => void | Promise<void>;
+  onConsultationUpdated?: (updatedConsultation: PatientConsultationRow) => void | Promise<void>;
 };
 
 export function ConsultationHistory({
@@ -50,9 +68,13 @@ export function ConsultationHistory({
   patientId,
   headerAction,
   onConsultationSaved,
+  onConsultationUpdated,
 }: Props) {
   const newestFirst = useMemo(
-    () => [...consultations].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
+    () =>
+      [...consultations]
+        .filter(hasClinicalContent)
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
     [consultations]
   );
   const [visibleCount, setVisibleCount] = useState(5);
@@ -97,8 +119,8 @@ export function ConsultationHistory({
     author?.nom ? author.nom : '—';
 
   const shortText = (value: string | null, maxLength: number) => {
-    if (!value) return '—';
-    const compact = value.replace(/\s+/g, ' ').trim();
+    const compact = hasRenderableText(value) ? value!.trim().replace(/\s+/g, ' ') : '';
+    if (!compact) return '—';
     return compact.length > maxLength ? `${compact.slice(0, maxLength).trimEnd()}…` : compact;
   };
 
@@ -125,6 +147,10 @@ export function ConsultationHistory({
       if (!res.ok) {
         toast.error(typeof data.error === 'string' ? data.error : 'Suppression impossible');
         return;
+      }
+      const updatedConsultation = (data?.consultation ?? data) as PatientConsultationRow | undefined;
+      if (updatedConsultation) {
+        await onConsultationUpdated?.(updatedConsultation);
       }
       await onConsultationSaved?.();
       toast.success(
@@ -230,7 +256,7 @@ export function ConsultationHistory({
                           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Date</p>
                           <p className="mt-1">{format(new Date(c.date), 'd MMM yyyy · HH:mm', { locale: fr })}</p>
                         </div>
-                        {c.motif ? (
+                        {hasRenderableText(c.motif ?? null) ? (
                           <div className="sm:col-span-2">
                             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Motif</p>
                             <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-slate-800">
@@ -249,7 +275,7 @@ export function ConsultationHistory({
                             {c.glycemie} mg/dL
                           </Badge>
                         ) : null}
-                        {c.tensionArterielle ? (
+                        {hasRenderableText(c.tensionArterielle) ? (
                           <Badge
                             variant="outline"
                             className={`gap-1 font-normal ${getTensionBadgeClassName(c.tensionArterielle)}`}
@@ -268,7 +294,7 @@ export function ConsultationHistory({
                           </Badge>
                         ) : null}
                       </div>
-                      {c.diagnostic ? (
+                      {hasRenderableText(c.diagnostic) ? (
                         <div className="mt-4">
                           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                             Diagnostic complet
@@ -278,7 +304,7 @@ export function ConsultationHistory({
                           </p>
                         </div>
                       ) : null}
-                      {c.notes ? (
+                      {hasRenderableText(c.notes) ? (
                         <div className="mt-3">
                           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                             Notes complètes
@@ -315,6 +341,7 @@ export function ConsultationHistory({
                             consultationId={c.id}
                             initialValues={c}
                             onSaved={onConsultationSaved}
+                            onConsultationUpdated={onConsultationUpdated}
                             triggerLabel="Modifier"
                             dialogTitle="Modifier la consultation"
                             dialogDescription="Actualisez le type, la date, le motif, les constantes, le diagnostic et les notes."

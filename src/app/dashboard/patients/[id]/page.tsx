@@ -137,6 +137,30 @@ function patientDocumentDisplayName(doc: { filename: string; label: string | nul
   return doc.label?.trim() || doc.filename;
 }
 
+function normalizeNullableDisplayText(value: string | null | undefined): string | null {
+  if (typeof value !== 'string') return null;
+  const text = value.trim();
+  if (!text) return null;
+  const lowered = text.toLowerCase();
+  if (lowered === 'null' || lowered === 'undefined') return null;
+  return text;
+}
+
+function hasClinicalContentLocal(consultation: PatientConsultationRow): boolean {
+  const motif = normalizeNullableDisplayText(consultation.motif ?? null);
+  const notes = normalizeNullableDisplayText(consultation.notes);
+  const diagnostic = normalizeNullableDisplayText(consultation.diagnostic);
+  const tension = normalizeNullableDisplayText(consultation.tensionArterielle);
+  return (
+    Boolean(motif) ||
+    Boolean(notes) ||
+    Boolean(diagnostic) ||
+    consultation.glycemie != null ||
+    Boolean(tension) ||
+    consultation.battementCoeur != null
+  );
+}
+
 const INVOICE_MODE_LABEL: Record<string, string> = {
   CASH: 'Espèces',
   CARD: 'Carte',
@@ -249,15 +273,30 @@ export default function PatientPage({ params }: { params: Promise<{ id: string }
   const [consultations, setConsultations] = useState<PatientConsultationRow[]>([]);
 
   const latestDiagnostic = useMemo(() => {
-    const sorted = [...consultations].sort(
-      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-    );
+    const sorted = [...consultations]
+      .filter(hasClinicalContentLocal)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     for (const c of sorted) {
-      const d = c.diagnostic?.trim();
+      const d = normalizeNullableDisplayText(c.diagnostic);
       if (d) return d;
     }
     return '';
   }, [consultations]);
+
+  const handleConsultationUpdated = useCallback((updatedConsultation: PatientConsultationRow) => {
+    setConsultations((previous) => {
+      const next = previous.filter((item) => item.id !== updatedConsultation.id);
+      if (!hasClinicalContentLocal(updatedConsultation)) {
+        return next;
+      }
+      next.push(updatedConsultation);
+      return next.sort(
+        (a, b) =>
+          new Date(b.date).getTime() - new Date(a.date).getTime() ||
+          b.id.localeCompare(a.id)
+      );
+    });
+  }, []);
 
   const patientDisplayName = useMemo(
     () =>
@@ -597,15 +636,15 @@ export default function PatientPage({ params }: { params: Promise<{ id: string }
     (patient.appointments ?? []) as PatientAppointmentForNotes[]
   );
   const latestStandaloneClinicalNote = [...consultations]
-    .filter((c) => c.source === 'OUT_OF_APPOINTMENT' && (c.notes?.trim() || c.diagnostic?.trim()))
+    .filter((c) => c.source === 'OUT_OF_APPOINTMENT' && hasClinicalContentLocal(c))
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
   const initialConsultationNotes =
-    clinicalNotesAppointment?.consultation?.notes_medecin ??
-    latestStandaloneClinicalNote?.notes ??
+    normalizeNullableDisplayText(clinicalNotesAppointment?.consultation?.notes_medecin) ??
+    normalizeNullableDisplayText(latestStandaloneClinicalNote?.notes) ??
     '';
   const initialConsultationDiagnostic =
-    clinicalNotesAppointment?.consultation?.diagnostic ??
-    latestStandaloneClinicalNote?.diagnostic ??
+    normalizeNullableDisplayText(clinicalNotesAppointment?.consultation?.diagnostic) ??
+    normalizeNullableDisplayText(latestStandaloneClinicalNote?.diagnostic) ??
     '';
   const clinicalNotesContextLabel = clinicalNotesAppointment
     ? `Liée au rendez-vous du ${format(new Date(clinicalNotesAppointment.date_heure), 'dd/MM/yyyy HH:mm', {
@@ -675,7 +714,7 @@ export default function PatientPage({ params }: { params: Promise<{ id: string }
                   🩸 {patient.groupeSanguin}
                 </Badge>
               )}
-              {patient.allergies && (
+              {normalizeNullableDisplayText(patient.allergies) && (
                 <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-100 px-3 py-1">
                   <AlertTriangle className="w-3 h-3 mr-1 inline-block" />
                   Allergies
@@ -822,8 +861,8 @@ export default function PatientPage({ params }: { params: Promise<{ id: string }
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Alertes</p>
               <PatientClinicalAlerts
                 notes={notesForAlerts}
-                allergies={patient.allergies}
-                antecedents={patient.antecedents}
+                allergies={normalizeNullableDisplayText(patient.allergies)}
+                antecedents={normalizeNullableDisplayText(patient.antecedents)}
               />
             </div>
             <div className="space-y-2">
@@ -840,11 +879,13 @@ export default function PatientPage({ params }: { params: Promise<{ id: string }
               <ConsultationHistory
                 patientId={patient.id}
                 consultations={consultations}
+                onConsultationUpdated={handleConsultationUpdated}
                 onConsultationSaved={() => void fetchConsultations()}
                 headerAction={
                   patient?.id ? (
                     <ConsultationForm
                       patientId={patient.id}
+                      onConsultationUpdated={handleConsultationUpdated}
                       onSaved={() => void fetchConsultations()}
                     />
                   ) : null
@@ -1027,7 +1068,10 @@ export default function PatientPage({ params }: { params: Promise<{ id: string }
                 initialDiagnostic={initialConsultationDiagnostic}
                 appointmentContextLabel={clinicalNotesContextLabel}
                 onNotesPreviewChange={setNotesForAlerts}
-                onSaved={() => void fetchConsultations()}
+                onSaved={() => {
+                  void refetchPatient();
+                  void fetchConsultations();
+                }}
                 headerAction={
                   <Button
                     onClick={() => {
@@ -1087,7 +1131,7 @@ export default function PatientPage({ params }: { params: Promise<{ id: string }
                     patientId={patient.id}
                     field="allergies"
                     title="Allergies Connues"
-                    value={patient.allergies}
+                    value={normalizeNullableDisplayText(patient.allergies)}
                     variant="allergies"
                     onSaved={(next) =>
                       setPatient((prev: any) => (prev ? { ...prev, allergies: next } : prev))
@@ -1097,7 +1141,7 @@ export default function PatientPage({ params }: { params: Promise<{ id: string }
                     patientId={patient.id}
                     field="antecedents"
                     title="Antécédents Médicaux"
-                    value={patient.antecedents}
+                    value={normalizeNullableDisplayText(patient.antecedents)}
                     variant="antecedents"
                     onSaved={(next) =>
                       setPatient((prev: any) => (prev ? { ...prev, antecedents: next } : prev))
