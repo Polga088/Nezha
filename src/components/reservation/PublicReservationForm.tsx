@@ -31,6 +31,14 @@ type ReservationFormValues = {
   honeypot: string;
 };
 
+function normalizeEmail(value: string) {
+  return value.trim().toLowerCase();
+}
+
+function isValidEmail(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
 function todayIsoDate() {
   const now = new Date();
   const year = now.getFullYear();
@@ -115,6 +123,7 @@ export function PublicReservationForm({ initialConfig }: ReservationFormProps) {
   }, [values.doctorId, values.date]);
 
   const selectedDoctor = config.doctors.find((doctor) => doctor.doctorId === values.doctorId) ?? null;
+  const normalizedEmail = normalizeEmail(values.email);
 
   const canSubmit =
     !submitting &&
@@ -126,7 +135,6 @@ export function PublicReservationForm({ initialConfig }: ReservationFormProps) {
         values.prenom.trim() &&
         values.date_naissance &&
         values.tel.trim() &&
-        values.email.trim() &&
         values.motif.trim() &&
         values.consentAccepted
     );
@@ -142,6 +150,10 @@ export function PublicReservationForm({ initialConfig }: ReservationFormProps) {
     setMessage(null);
 
     try {
+      if (normalizedEmail && !isValidEmail(normalizedEmail)) {
+        throw new Error('Email invalide : vérifiez le format de l’adresse saisie.');
+      }
+
       const response = await fetch('/api/public/reservation', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -154,7 +166,7 @@ export function PublicReservationForm({ initialConfig }: ReservationFormProps) {
           date_naissance: values.date_naissance,
           sexe: values.sexe,
           tel: values.tel,
-          email: values.email,
+          email: normalizedEmail || null,
           insuranceTypeId: values.insuranceTypeId || null,
           cin: values.cin,
           adresse: values.adresse,
@@ -341,15 +353,14 @@ export function PublicReservationForm({ initialConfig }: ReservationFormProps) {
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
-              <label className="space-y-2">
-                <span className="text-sm font-medium text-slate-700">Email</span>
+            <label className="space-y-2">
+                <span className="text-sm font-medium text-slate-700">Email (facultatif)</span>
                 <input
                   type="email"
                   className="clinical-input"
                   maxLength={PUBLIC_RESERVATION_FIELD_LIMITS.email}
                   value={values.email}
                   onChange={(event) => update('email', event.target.value)}
-                  required
                 />
               </label>
               <label className="space-y-2">

@@ -373,11 +373,19 @@ export async function createPublicReservation(input: PublicReservationCreateInpu
     return { ok: false as const, status: 400, message: 'Demande invalide' };
   }
 
-  if (!cleanNom || !cleanPrenom || !cleanMotif || !cleanDateNaissance || !cleanTel || !cleanEmail || !cleanSexe || !consentAccepted) {
+  if (
+    !cleanNom ||
+    !cleanPrenom ||
+    !cleanMotif ||
+    !cleanDateNaissance ||
+    !cleanTel ||
+    !cleanSexe ||
+    !consentAccepted
+  ) {
     return { ok: false as const, status: 400, message: 'Demande de réservation incomplète' };
   }
 
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+  if (cleanEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
     return { ok: false as const, status: 400, message: 'Adresse email invalide' };
   }
 
