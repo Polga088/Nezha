@@ -252,6 +252,55 @@ function AgendaPageContent() {
     router.replace('/dashboard/agenda', { scroll: false });
   }, [searchParams, router]);
 
+  useEffect(() => {
+    if (!patientSearchOpen) return;
+
+    const query = patientSearchQuery.trim();
+    if (query.length < PATIENT_SEARCH_MIN_CHARS) {
+      setPatientSearchResults([]);
+      setPatientSearchLoading(false);
+      setPatientSearchError(null);
+      return;
+    }
+
+    const controller = new AbortController();
+    const requestId = ++patientSearchSeq.current;
+    const timeoutId = window.setTimeout(() => {
+      setPatientSearchLoading(true);
+      setPatientSearchError(null);
+
+      fetch(`/api/patients/search?q=${encodeURIComponent(query)}`, {
+        signal: controller.signal,
+        credentials: 'same-origin',
+      })
+        .then(async (res) => {
+          if (!res.ok) throw new Error('search');
+          return (await res.json()) as { data?: PatientSearchResult[] };
+        })
+        .then((payload) => {
+          if (requestId !== patientSearchSeq.current) return;
+          const rows = Array.isArray(payload.data) ? payload.data.slice(0, PATIENT_SEARCH_LIMIT) : [];
+          setPatientSearchResults(rows);
+        })
+        .catch((error) => {
+          if (requestId !== patientSearchSeq.current) return;
+          if (error instanceof DOMException && error.name === 'AbortError') return;
+          setPatientSearchResults([]);
+          setPatientSearchError('Impossible de rechercher ce patient.');
+        })
+        .finally(() => {
+          if (requestId === patientSearchSeq.current) {
+            setPatientSearchLoading(false);
+          }
+        });
+    }, PATIENT_SEARCH_DEBOUNCE_MS);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+      controller.abort();
+    };
+  }, [patientSearchOpen, patientSearchQuery]);
+
   const onEventDrop = useCallback(
     async ({ event, start }: { event: AgendaCalendarEvent; start: Date; end: Date }) => {
       try {
@@ -675,63 +724,234 @@ function AgendaPageContent() {
                       Le créneau est enregistré pour le praticien sélectionné.
                     </p>
                   </div>
+                ) : null}
+
+                <div className="space-y-4">
+                  {!isCreatePatientMode ? (
+                    <>
+                      <div className="space-y-2">
+                        <Label htmlFor="agenda-patient">Associer un Patient Existant</Label>
+                        <input type="hidden" name="patient_id" value={selectedPatientId} readOnly />
+                        <Popover open={patientSearchOpen} onOpenChange={setPatientSearchOpen}>
+                          <PopoverTrigger asChild>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              role="combobox"
+                              aria-expanded={patientSearchOpen}
+                              className="w-full justify-between"
+                            >
+                              <span className="truncate text-left">
+                                {selectedPatient
+                                  ? `${selectedPatient.prenom} ${selectedPatient.nom.toUpperCase()}`
+                                  : selectedPatientId
+                                    ? 'Patient sélectionné'
+                                    : 'Rechercher un patient par nom, prénom, téléphone ou CIN…'}
+                              </span>
+                              <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-[min(92vw,32rem)] p-0" align="start">
+                            <Command shouldFilter={false}>
+                              <CommandInput
+                                value={patientSearchQuery}
+                                onValueChange={(value) => setPatientSearchQuery(value)}
+                                placeholder="Rechercher un patient par nom, prénom, téléphone ou CIN…"
+                              />
+                              <CommandList>
+                                {patientSearchLoading ? (
+                                  <CommandEmpty>Recherche en cours…</CommandEmpty>
+                                ) : patientSearchError ? (
+                                  <CommandEmpty>{patientSearchError}</CommandEmpty>
+                                ) : patientSearchQuery.trim().length < PATIENT_SEARCH_MIN_CHARS ? (
+                                  <CommandEmpty>Au moins 2 caractères requis.</CommandEmpty>
+                                ) : patientSearchResults.length === 0 ? (
+                                  <CommandEmpty>Aucun patient correspondant</CommandEmpty>
+                                ) : null}
+                                <CommandGroup heading="Résultats">
+                                  {patientSearchResults.map((patient) => (
+                                    <CommandItem
+                                      key={patient.id}
+                                      value={patient.id}
+                                      onSelect={() => {
+                                        setSelectedPatientId(patient.id);
+                                        setSelectedPatient(patient);
+                                        setPatientSearchOpen(false);
+                                        setPatientSearchQuery('');
+                                        setPatientSearchResults([]);
+                                        setPatientSearchError(null);
+                                      }}
+                                    >
+                                      <Check
+                                        className={cn(
+                                          'mr-2 h-4 w-4',
+                                          selectedPatientId === patient.id ? 'opacity-100' : 'opacity-0'
+                                        )}
+                                      />
+                                      <div className="min-w-0">
+                                        <div className="truncate font-medium">
+                                          {patient.prenom} {patient.nom.toUpperCase()}
+                                        </div>
+                                        <div className="text-xs text-slate-500">
+                                          {patient.tel ? `${patient.tel}` : 'Téléphone non renseigné'}
+                                          {patient.date_naissance
+                                            ? ` · Né le ${formatPatientBirthDate(patient.date_naissance)}`
+                                            : ''}
+                                          {patient.cin ? ` · CIN: ${patient.cin}` : ''}
+                                        </div>
+                                      </div>
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
+                        {selectedPatient || selectedPatientId ? (
+                          <div className="flex items-center justify-between gap-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
+                            <div className="min-w-0">
+                              <div className="font-medium text-slate-900">
+                                {selectedPatient
+                                  ? `${selectedPatient.prenom} ${selectedPatient.nom.toUpperCase()}`
+                                  : 'Patient sélectionné'}
+                              </div>
+                              {selectedPatient?.tel ? (
+                                <div className="text-xs text-slate-500">{selectedPatient.tel}</div>
+                              ) : null}
+                            </div>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              className="h-8 shrink-0 px-2 text-slate-500 hover:text-slate-900"
+                              onClick={() => {
+                                setSelectedPatientId('');
+                                setSelectedPatient(null);
+                                setPatientSearchQuery('');
+                                setPatientSearchResults([]);
+                                setPatientSearchError(null);
+                              }}
+                            >
+                              <X className="h-4 w-4" />
+                              Retirer
+                            </Button>
+                          </div>
+                        ) : null}
+                        {prefillTelDisplay ? (
+                          <p className="rounded-md border border-slate-100 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                            <span className="font-medium text-slate-700">Téléphone (dossier) :</span>{' '}
+                            {prefillTelDisplay}
+                          </p>
+                        ) : null}
+                      </div>
+                      <div className="flex items-center gap-4 py-2">
+                        <div className="h-px flex-1 bg-slate-200"></div>
+                        <span className="text-xs text-slate-400">Ou</span>
+                        <div className="h-px flex-1 bg-slate-200"></div>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full"
+                        onClick={() => setIsCreatePatientMode(true)}
+                      >
+                        Nouveau Patient
+                      </Button>
+                    </>
+                  ) : (
+                    <Card className="space-y-4 border-blue-100 bg-slate-50/50 p-4">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-semibold text-slate-800">Création Fiche</span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          className="h-8 text-xs text-red-600"
+                          onClick={() => setIsCreatePatientMode(false)}
+                        >
+                          Annuler
+                        </Button>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Nom</Label>
+                        <Input
+                          required
+                          onChange={(e) => setNewPat({ ...newPat, nom: e.target.value })}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Prénom</Label>
+                        <Input
+                          required
+                          onChange={(e) => setNewPat({ ...newPat, prenom: e.target.value })}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Téléphone</Label>
+                        <Input
+                          type="tel"
+                          inputMode="tel"
+                          autoComplete="tel"
+                          onChange={(e) => setNewPat({ ...newPat, tel: e.target.value })}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Date de Naissance</Label>
+                        <Input
+                          type="date"
+                          required
+                          onChange={(e) => setNewPat({ ...newPat, date_naissance: e.target.value })}
+                        />
+                      </div>
+                    </Card>
+                  )}
+                </div>
+
+                {showDoctorFieldInSheet ? (
                   <div className="space-y-2">
-                    <Label>Date de Naissance</Label>
-                    <Input
-                      type="date"
+                    <Label htmlFor="agenda-doctor">Médecin traitant</Label>
+                    <Select
                       required
-                      onChange={(e) => setNewPat({ ...newPat, date_naissance: e.target.value })}
-                    />
+                      value={sheetDoctorId || undefined}
+                      onValueChange={setSheetDoctorId}
+                    >
+                      <SelectTrigger id="agenda-doctor" className="w-full">
+                        <SelectValue placeholder="-- Choisir un médecin --" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {doctors.map((d) => (
+                          <SelectItem key={d.id} value={d.id}>
+                            {d.prenom ? `${d.nom} ${d.prenom}` : d.nom}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
-                </Card>
-              )}
-            </div>
+                ) : null}
 
-            {showDoctorFieldInSheet ? (
-              <div className="space-y-2">
-                <Label htmlFor="agenda-doctor">Médecin traitant</Label>
-                <Select
-                  required
-                  value={sheetDoctorId || undefined}
-                  onValueChange={setSheetDoctorId}
-                >
-                  <SelectTrigger id="agenda-doctor" className="w-full">
-                    <SelectValue placeholder="-- Choisir un médecin --" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {doctors.map((d) => (
-                      <SelectItem key={d.id} value={d.id}>
-                        {d.prenom ? `${d.nom} ${d.prenom}` : d.nom}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            ) : null}
+                <div className="space-y-2">
+                  <Label>Motif de Consultation</Label>
+                  <Input
+                    required
+                    placeholder="Ex: Contrôle, Urgence..."
+                    value={motif}
+                    onChange={(e) => setMotif(e.target.value)}
+                  />
+                </div>
 
-            <div className="space-y-2">
-              <Label>Motif de Consultation</Label>
-              <Input
-                required
-                placeholder="Ex: Contrôle, Urgence..."
-                value={motif}
-                onChange={(e) => setMotif(e.target.value)}
-              />
-            </div>
+                <PlanifierUnCreneau
+                  value={appointmentType}
+                  onChange={setAppointmentType}
+                  bookingChannel={bookingChannel}
+                  onBookingChannelChange={setBookingChannel}
+                  initialPresence={initialPresence}
+                  onInitialPresenceChange={setInitialPresence}
+                />
 
-            <PlanifierUnCreneau
-              value={appointmentType}
-              onChange={setAppointmentType}
-              bookingChannel={bookingChannel}
-              onBookingChannelChange={setBookingChannel}
-              initialPresence={initialPresence}
-              onInitialPresenceChange={setInitialPresence}
-            />
-
-            <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700">
-              Valider le Rendez-Vous
-            </Button>
-          </form>
+                <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700">
+                  Valider le Rendez-Vous
+                </Button>
+              </form>
+            </>
+          )}
         </SheetContent>
       </Sheet>
 
