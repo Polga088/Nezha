@@ -227,6 +227,7 @@ model User {
   prescriptionsAsDoctor Prescription[] @relation("PrescriptionDoctor")
   invoicesCreated       Invoice[]       @relation("InvoiceCreatedBy")
   consultationsAuthored Consultation[]  @relation("ConsultationAuthor")
+  publicAppointmentsValidated Appointment[] @relation("AppointmentPublicValidatedBy")
   /// Horaires hebdomadaires d’agenda (une ligne par médecin, upsert via /api/doctor/availability).
   doctorAvailability    Availability?
 
@@ -425,6 +426,9 @@ model Appointment {
   motif         String
   statut        AppointmentStatus @default(WAITING)
   reservationSource String        @default("INTERNAL")
+  publicValidatedAt DateTime?
+  publicValidatedById String?
+  publicValidatedBy User?         @relation("AppointmentPublicValidatedBy", fields: [publicValidatedById], references: [id], onDelete: SetNull)
   publicBookingToken String?      @unique
   publicConsentAcceptedAt DateTime?
   publicConsentVersion String?
@@ -454,6 +458,7 @@ model Appointment {
   updatedAt     DateTime          @updatedAt
 
   @@index([doctor_id, statut, date_heure])
+  @@index([publicValidatedById])
 }
 
 /// Snapshot immuable des notes au moment de la clôture médicale (fin de consultation).

@@ -85,6 +85,7 @@ type AgendaCalendarProps = {
   onView: (v: View) => void;
   onEventDrop: (args: { event: AgendaCalendarEvent; start: Date; end: Date }) => void;
   onSelectSlot: (slot: { start: Date; end: Date }) => void;
+  onSelectEvent?: (event: AgendaCalendarEvent) => void;
   /** Revalidation SWR / rafraîchissement des données en cours */
   isRefreshing?: boolean;
   style?: React.CSSProperties;
@@ -101,6 +102,7 @@ export function Calendar({
   onView,
   onEventDrop,
   onSelectSlot,
+  onSelectEvent,
   isRefreshing = false,
   style,
 }: AgendaCalendarProps) {
@@ -145,6 +147,7 @@ export function Calendar({
         events={events}
         onEventDrop={onEventDrop as never}
         onSelectSlot={onSelectSlot}
+        onSelectEvent={onSelectEvent as never}
         selectable
         resizable={false}
         defaultView="week"

@@ -7,6 +7,7 @@ import { format } from 'date-fns';
 import { fr } from 'date-fns/locale/fr';
 import { toast } from 'sonner';
 import useSWR from 'swr';
+import { Check, ChevronDown, Loader2, X } from 'lucide-react';
 
 import {
   Calendar as AgendaCalendar,
@@ -15,33 +16,76 @@ import {
 import { PlanifierUnCreneau, type InitialPresence } from '@/components/agenda/PlanifierUnCreneau';
 import type { AppointmentType, BookingChannel } from '@/generated/prisma/client';
 import { colorForAppointmentType } from '@/lib/appointment-types';
+import { getAppointmentWorkflowLabel, isPublicReservationPending } from '@/lib/appointment-status';
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
+import { Badge } from '@/components/ui/badge';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card } from '@/components/ui/card';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 import { getVisibleRange, buildAppointmentsQuery } from '@/lib/appointments-range';
+import { cn } from '@/lib/utils';
 
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import 'react-big-calendar/lib/addons/dragAndDrop/styles.css';
 import './calendar-override.css';
 
 const FILTER_ALL_VALUE = '__ALL__';
+const PATIENT_SEARCH_MIN_CHARS = 2;
+const PATIENT_SEARCH_LIMIT = 20;
+const PATIENT_SEARCH_DEBOUNCE_MS = 350;
 
-type PatientOption = { id: string; nom: string; prenom: string };
+type PatientSearchResult = {
+  id: string;
+  nom: string;
+  prenom: string;
+  tel: string | null;
+  cin: string | null;
+  date_naissance: string | null;
+};
 
 type AppointmentApiRow = {
   id: string;
   motif: string;
   date_heure: string;
+  statut: string;
   color?: string | null;
   appointmentType: AppointmentType;
   reservationSource?: string | null;
-  patient?: { nom?: string | null } | null;
+  publicValidatedAt?: string | null;
+  publicValidatedById?: string | null;
+  patient?: { nom?: string | null; prenom?: string | null; tel?: string | null } | null;
+  doctor?: { nom?: string | null } | null;
 };
+
+function formatPatientBirthDate(value: string | null): string | null {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return format(date, 'dd/MM/yyyy');
+}
 
 const appointmentsFetcher = async (url: string) => {
   const res = await fetch(url, { credentials: 'same-origin' });
@@ -56,13 +100,20 @@ function AgendaPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const agendaPrefillApplied = useRef(false);
+  const patientSearchSeq = useRef(0);
 
-  const [patients, setPatients] = useState<PatientOption[]>([]);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [isCreatePatientMode, setIsCreatePatientMode] = useState(false);
 
   const [selectedSlot, setSelectedSlot] = useState<{ start: Date; end: Date } | null>(null);
+  const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(null);
   const [selectedPatientId, setSelectedPatientId] = useState('');
+  const [selectedPatient, setSelectedPatient] = useState<PatientSearchResult | null>(null);
+  const [patientSearchOpen, setPatientSearchOpen] = useState(false);
+  const [patientSearchQuery, setPatientSearchQuery] = useState('');
+  const [patientSearchResults, setPatientSearchResults] = useState<PatientSearchResult[]>([]);
+  const [patientSearchLoading, setPatientSearchLoading] = useState(false);
+  const [patientSearchError, setPatientSearchError] = useState<string | null>(null);
   const [motif, setMotif] = useState('');
   /** Tél. affiché quand arrivée depuis la fiche patient (query patient_tel) */
   const [prefillTelDisplay, setPrefillTelDisplay] = useState('');
@@ -80,6 +131,8 @@ function AgendaPageContent() {
   const [sheetDoctorId, setSheetDoctorId] = useState('');
   /** Médecin du RDV (formulaire) — obligatoire pour ASSISTANT ; `name="doctorId"` */
   const [rdvDoctorId, setRdvDoctorId] = useState('');
+  const [pendingPublicAction, setPendingPublicAction] = useState<'validate' | 'reject' | null>(null);
+  const [pendingActionLoading, setPendingActionLoading] = useState(false);
 
   const needsDoctorSelect = userRole === 'ASSISTANT' || userRole === 'ADMIN';
 
@@ -127,39 +180,37 @@ function AgendaPageContent() {
     },
   });
 
+  const appointments = useMemo(
+    () => (Array.isArray(appointmentsRaw) ? (appointmentsRaw as AppointmentApiRow[]) : []),
+    [appointmentsRaw]
+  );
+
   const events: AgendaCalendarEvent[] = useMemo(() => {
-    if (!Array.isArray(appointmentsRaw)) return [];
-    return (appointmentsRaw as AppointmentApiRow[]).map((a) => ({
-      id: a.id,
-      title:
-        `${a.reservationSource === 'RESERVATION_PUBLIC' ? 'Réservation en ligne · ' : ''}` +
-        `${a.patient?.nom ?? '?'} - ${a.motif}`,
-      start: new Date(a.date_heure),
-      end: new Date(new Date(a.date_heure).getTime() + 30 * 60000),
-      color: a.color ?? colorForAppointmentType(a.appointmentType),
-    }));
-  }, [appointmentsRaw]);
-
-  const fetchPatientsList = async () => {
-    try {
-      const res = await fetch('/api/patients');
-      if (!res.ok) return;
-      const data = await res.json().catch(() => null);
-      if (Array.isArray(data)) {
-        setPatients(data);
-      } else if (Array.isArray(data?.data)) {
-        setPatients(data.data);
-      } else {
-        setPatients([]);
+    return appointments.map((a) => {
+      const workflowLabel = getAppointmentWorkflowLabel(a);
+      const titleParts: string[] = [];
+      if (a.reservationSource === 'RESERVATION_PUBLIC') {
+        titleParts.push('Réservation en ligne');
       }
-    } catch (e) {
-      console.error('[Agenda] fetchPatientsList', e);
-    }
-  };
+      if (workflowLabel && workflowLabel !== 'En attente') {
+        titleParts.push(workflowLabel);
+      }
+      titleParts.push(`${a.patient?.nom ?? '?'} - ${a.motif}`);
 
-  useEffect(() => {
-    fetchPatientsList();
-  }, []);
+      return {
+        id: a.id,
+        title: titleParts.join(' · '),
+        start: new Date(a.date_heure),
+        end: new Date(new Date(a.date_heure).getTime() + 30 * 60000),
+        color: a.color ?? colorForAppointmentType(a.appointmentType),
+      };
+    });
+  }, [appointments]);
+
+  const selectedAppointment = useMemo(
+    () => appointments.find((appointment) => appointment.id === selectedAppointmentId) ?? null,
+    [appointments, selectedAppointmentId]
+  );
 
   useEffect(() => {
     if (!sessionReady || !needsDoctorSelect) return;
@@ -221,9 +272,20 @@ function AgendaPageContent() {
   );
 
   const handleSelectSlot = (slotInfo: { start: Date; end: Date }) => {
+    setSelectedAppointmentId(null);
     setSelectedSlot(slotInfo);
     setRdvDoctorId((prev) => (prev.trim() ? prev : agendaFilterDoctorId));
     setIsSheetOpen(true);
+    setIsCreatePatientMode(false);
+    setPatientSearchOpen(false);
+  };
+
+  const handleSelectEvent = (event: AgendaCalendarEvent) => {
+    setSelectedSlot(null);
+    setSelectedAppointmentId(event.id);
+    setIsSheetOpen(true);
+    setIsCreatePatientMode(false);
+    setPatientSearchOpen(false);
   };
 
   const handleNavigate = useCallback((newDate: Date) => {
@@ -236,6 +298,84 @@ function AgendaPageContent() {
 
   const showDoctorFieldInSheet =
     needsDoctorSelect && userRole === 'ADMIN' && !agendaFilterDoctorId;
+
+  const resetAppointmentForm = () => {
+    setIsSheetOpen(false);
+    setSelectedSlot(null);
+    setSelectedAppointmentId(null);
+    setIsCreatePatientMode(false);
+    setMotif('');
+    setAppointmentType('FOLLOW_UP');
+    setBookingChannel('PHONE');
+    setInitialPresence('confirmed');
+    setSelectedPatientId('');
+    setSelectedPatient(null);
+    setPatientSearchQuery('');
+    setPatientSearchResults([]);
+    setPatientSearchError(null);
+    setPatientSearchLoading(false);
+    setPatientSearchOpen(false);
+    setPrefillTelDisplay('');
+    setSheetDoctorId('');
+    setRdvDoctorId('');
+    setNewPat({ nom: '', prenom: '', tel: '', date_naissance: '' });
+  };
+
+  const updateAppointmentLocally = useCallback(
+    async (updatedAppointment: AppointmentApiRow) => {
+      await mutate(
+        (current: AppointmentApiRow[] | undefined) => {
+          if (!Array.isArray(current)) return current;
+          return current.map((appointment) =>
+            appointment.id === updatedAppointment.id
+              ? { ...appointment, ...updatedAppointment }
+              : appointment
+          );
+        },
+        { revalidate: false }
+      );
+    },
+    [mutate]
+  );
+
+  const performPublicAction = useCallback(
+    async (action: 'validate' | 'reject') => {
+      if (!selectedAppointment) return;
+
+      setPendingActionLoading(true);
+      try {
+        const res = await fetch(`/api/appointments/${selectedAppointment.id}/${action}`, {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+        });
+        const payload = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          const message =
+            typeof payload?.error === 'string' ? payload.error : 'Action impossible';
+          if (res.status === 409) {
+            toast.error(message);
+            setPendingPublicAction(null);
+          } else {
+            throw new Error(message);
+          }
+          return;
+        }
+
+        const updatedAppointment = payload?.appointment as AppointmentApiRow | undefined;
+        if (updatedAppointment) {
+          await updateAppointmentLocally(updatedAppointment);
+        }
+        toast.success(action === 'validate' ? 'Réservation validée.' : 'Demande refusée.');
+        setPendingPublicAction(null);
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Erreur serveur');
+      } finally {
+        setPendingActionLoading(false);
+      }
+    },
+    [selectedAppointment, updateAppointmentLocally]
+  );
 
   const submitRDV = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -285,22 +425,11 @@ function AgendaPageContent() {
         throw new Error(msg);
       }
 
-      const wasNewPatient = isCreatePatientMode;
       await mutate();
       toast.success('Rendez-vous planifié avec succès !', {
         description: 'L’agenda a été synchronisé.',
       });
-      setIsSheetOpen(false);
-      setIsCreatePatientMode(false);
-      setMotif('');
-      setAppointmentType('FOLLOW_UP');
-      setBookingChannel('PHONE');
-      setInitialPresence('confirmed');
-      setSelectedPatientId('');
-      setPrefillTelDisplay('');
-      setSheetDoctorId('');
-      setRdvDoctorId('');
-      if (wasNewPatient) fetchPatientsList();
+      resetAppointmentForm();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Erreur lors de la création du rendez-vous');
     }
@@ -318,10 +447,23 @@ function AgendaPageContent() {
       start.setMinutes(start.getMinutes() + 30, 0, 0);
     }
     const end = new Date(start.getTime() + 30 * 60000);
+    setSelectedAppointmentId(null);
     setSelectedSlot({ start, end });
     setRdvDoctorId((prev) => (prev.trim() ? prev : agendaFilterDoctorId));
     setIsSheetOpen(true);
+    setIsCreatePatientMode(false);
+    setPatientSearchOpen(false);
   };
+
+  const selectedAppointmentWorkflowLabel = selectedAppointment
+    ? getAppointmentWorkflowLabel(selectedAppointment)
+    : '';
+  const selectedAppointmentIsPublicPending = selectedAppointment
+    ? isPublicReservationPending(selectedAppointment)
+    : false;
+  const selectedAppointmentStartLabel = selectedAppointment
+    ? format(new Date(selectedAppointment.date_heure), 'EEEE d MMMM yyyy à HH:mm', { locale: fr })
+    : '';
 
   return (
     <div className="flex flex-col gap-6 h-[calc(100vh-120px)] animate-fade-in relative z-0">
@@ -401,6 +543,7 @@ function AgendaPageContent() {
           events={events}
           onEventDrop={onEventDrop}
           onSelectSlot={handleSelectSlot}
+          onSelectEvent={handleSelectEvent}
           isRefreshing={isCalendarRefreshing}
           style={{ height: '100%' }}
         />
@@ -409,128 +552,128 @@ function AgendaPageContent() {
       <Sheet
         open={isSheetOpen}
         onOpenChange={(open) => {
-          setIsSheetOpen(open);
           if (!open) {
-            setSheetDoctorId('');
-            setRdvDoctorId('');
+            resetAppointmentForm();
+            return;
           }
+          setIsSheetOpen(true);
         }}
       >
         <SheetContent className="bg-white overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle>Planifier un Créneau</SheetTitle>
-            <SheetDescription>
-              {selectedSlot &&
-                format(selectedSlot.start, 'EEEE d MMMM yyyy à HH:mm', { locale: fr })}
-            </SheetDescription>
-          </SheetHeader>
+          {selectedAppointment ? (
+            <>
+              <SheetHeader>
+                <SheetTitle>Rendez-vous</SheetTitle>
+                <SheetDescription>{selectedAppointmentStartLabel}</SheetDescription>
+              </SheetHeader>
 
-          <form onSubmit={submitRDV} className="mt-8 space-y-6">
-            {userRole === 'ASSISTANT' ? (
-              <div className="space-y-2">
-                <Label htmlFor="doctorId">
-                  Médecin traitant <span className="text-red-600">*</span>
-                </Label>
-                <select
-                  id="doctorId"
-                  name="doctorId"
-                  required
-                  value={rdvDoctorId}
-                  onChange={(e) => setRdvDoctorId(e.target.value)}
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                  aria-required="true"
-                  aria-label="Médecin traitant pour ce rendez-vous"
-                >
-                  <option value="">-- Choisir un médecin --</option>
-                  {doctors.map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {d.prenom ? `${d.nom} ${d.prenom}` : d.nom}
-                    </option>
-                  ))}
-                </select>
-                <p className="text-xs text-slate-500">
-                  Le créneau est enregistré pour le praticien sélectionné.
-                </p>
-              </div>
-            ) : null}
-
-            <div className="space-y-4">
-              {!isCreatePatientMode ? (
-                <>
-                  <div className="space-y-2">
-                    <Label htmlFor="agenda-patient">Associer un Patient Existant</Label>
-                    <input type="hidden" name="patient_id" value={selectedPatientId} readOnly />
-                    <Select
-                      value={selectedPatientId || undefined}
-                      onValueChange={setSelectedPatientId}
+              <div className="mt-8 space-y-5">
+                <div className="flex flex-wrap gap-2">
+                  {selectedAppointment.reservationSource === 'RESERVATION_PUBLIC' ? (
+                    <Badge variant="outline" className="border-blue-200 bg-blue-50 text-blue-700">
+                      Réservation en ligne
+                    </Badge>
+                  ) : null}
+                  {selectedAppointment.reservationSource === 'RESERVATION_PUBLIC' ? (
+                    <Badge
+                      className={cn(
+                        selectedAppointment.statut === 'CANCELED'
+                          ? 'bg-slate-100 text-slate-600 hover:bg-slate-100'
+                          : 'bg-amber-100 text-amber-800 hover:bg-amber-100'
+                      )}
                     >
-                      <SelectTrigger id="agenda-patient" className="w-full">
-                        <SelectValue placeholder="-- Rechercher dans le DME --" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {patients.map((p) => (
-                          <SelectItem key={p.id} value={p.id}>
-                            {p.nom.toUpperCase()} {p.prenom}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {prefillTelDisplay ? (
-                      <p className="text-xs text-slate-600 rounded-md bg-slate-50 border border-slate-100 px-3 py-2">
-                        <span className="font-medium text-slate-700">Téléphone (dossier) :</span>{' '}
-                        {prefillTelDisplay}
-                      </p>
+                      {selectedAppointment.statut === 'CANCELED'
+                        ? 'Annulé'
+                        : selectedAppointmentWorkflowLabel}
+                    </Badge>
+                  ) : (
+                    <Badge variant="secondary" className="bg-slate-100 text-slate-700">
+                      {selectedAppointmentWorkflowLabel}
+                    </Badge>
+                  )}
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 space-y-3 text-sm">
+                  <div>
+                    <div className="text-xs uppercase tracking-[0.14em] text-slate-500">Patient</div>
+                    <div className="font-semibold text-slate-900">
+                      {selectedAppointment.patient?.prenom ?? '—'}{' '}
+                      {selectedAppointment.patient?.nom ?? ''}
+                    </div>
+                    {selectedAppointment.patient?.tel ? (
+                      <div className="text-slate-600">{selectedAppointment.patient.tel}</div>
                     ) : null}
                   </div>
-                  <div className="flex items-center gap-4 py-2">
-                    <div className="h-px bg-slate-200 flex-1"></div>
-                    <span className="text-xs text-slate-400">Ou</span>
-                    <div className="h-px bg-slate-200 flex-1"></div>
+                  <div>
+                    <div className="text-xs uppercase tracking-[0.14em] text-slate-500">Médecin</div>
+                    <div className="font-semibold text-slate-900">
+                      {selectedAppointment.doctor?.nom ?? '—'}
+                    </div>
                   </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="w-full"
-                    onClick={() => setIsCreatePatientMode(true)}
-                  >
-                    Nouveau Patient
-                  </Button>
-                </>
-              ) : (
-                <Card className="p-4 space-y-4 bg-slate-50/50 border-blue-100">
-                  <div className="flex justify-between items-center">
-                    <span className="font-semibold text-sm text-slate-800">Création Fiche</span>
+                  <div>
+                    <div className="text-xs uppercase tracking-[0.14em] text-slate-500">Motif</div>
+                    <div className="text-slate-700">{selectedAppointment.motif}</div>
+                  </div>
+                </div>
+
+                {selectedAppointmentIsPublicPending ? (
+                  <div className="flex flex-col gap-3 sm:flex-row">
                     <Button
                       type="button"
-                      variant="ghost"
-                      className="h-8 text-xs text-red-600"
-                      onClick={() => setIsCreatePatientMode(false)}
+                      className="bg-emerald-600 hover:bg-emerald-700"
+                      disabled={pendingActionLoading}
+                      onClick={() => setPendingPublicAction('validate')}
                     >
-                      Annuler
+                      Valider le rendez-vous
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      disabled={pendingActionLoading}
+                      onClick={() => setPendingPublicAction('reject')}
+                    >
+                      Refuser la demande
                     </Button>
                   </div>
+                ) : null}
+              </div>
+            </>
+          ) : (
+            <>
+              <SheetHeader>
+                <SheetTitle>Planifier un Créneau</SheetTitle>
+                <SheetDescription>
+                  {selectedSlot &&
+                    format(selectedSlot.start, 'EEEE d MMMM yyyy à HH:mm', { locale: fr })}
+                </SheetDescription>
+              </SheetHeader>
+
+              <form onSubmit={submitRDV} className="mt-8 space-y-6">
+                {userRole === 'ASSISTANT' ? (
                   <div className="space-y-2">
-                    <Label>Nom</Label>
-                    <Input
+                    <Label htmlFor="doctorId">
+                      Médecin traitant <span className="text-red-600">*</span>
+                    </Label>
+                    <select
+                      id="doctorId"
+                      name="doctorId"
                       required
-                      onChange={(e) => setNewPat({ ...newPat, nom: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Prénom</Label>
-                    <Input
-                      required
-                      onChange={(e) => setNewPat({ ...newPat, prenom: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Téléphone</Label>
-                    <Input
-                      type="tel"
-                      inputMode="tel"
-                      autoComplete="tel"
-                      onChange={(e) => setNewPat({ ...newPat, tel: e.target.value })}
-                    />
+                      value={rdvDoctorId}
+                      onChange={(e) => setRdvDoctorId(e.target.value)}
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      aria-required="true"
+                      aria-label="Médecin traitant pour ce rendez-vous"
+                    >
+                      <option value="">-- Choisir un médecin --</option>
+                      {doctors.map((d) => (
+                        <option key={d.id} value={d.id}>
+                          {d.prenom ? `${d.nom} ${d.prenom}` : d.nom}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-slate-500">
+                      Le créneau est enregistré pour le praticien sélectionné.
+                    </p>
                   </div>
                   <div className="space-y-2">
                     <Label>Date de Naissance</Label>
@@ -591,6 +734,47 @@ function AgendaPageContent() {
           </form>
         </SheetContent>
       </Sheet>
+
+      <AlertDialog
+        open={pendingPublicAction !== null}
+        onOpenChange={(open) => {
+          if (!open && !pendingActionLoading) {
+            setPendingPublicAction(null);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {pendingPublicAction === 'validate' ? 'Valider la réservation ?' : 'Refuser la demande ?'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingPublicAction === 'validate'
+                ? 'Confirmez-vous la validation de cette réservation ? Le rendez-vous sera ajouté aux rendez-vous confirmés du cabinet.'
+                : 'Confirmez-vous le refus de cette demande de rendez-vous ?'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={pendingActionLoading}>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(event) => {
+                event.preventDefault();
+                if (!pendingPublicAction || pendingActionLoading) return;
+                void performPublicAction(pendingPublicAction);
+              }}
+              disabled={pendingActionLoading}
+            >
+              {pendingActionLoading
+                ? pendingPublicAction === 'validate'
+                  ? 'Validation…'
+                  : 'Refus…'
+                : pendingPublicAction === 'validate'
+                  ? 'Valider'
+                  : 'Refuser la demande'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
