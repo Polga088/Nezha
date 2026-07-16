@@ -70,7 +70,7 @@ function waitToneClass(arrivalTime: string | null, dateHeure: string, now: Date)
 const TYPE_LABEL: Record<string, string> = {
   URGENT: 'Urgent',
   FIRST_VISIT: '1ʳᵉ visite',
-  FOLLOW_UP: 'Suivi',
+  FOLLOW_UP: 'Contrôle',
 };
 
 type Me = { id: string; role: string };

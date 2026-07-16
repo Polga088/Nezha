@@ -1,6 +1,6 @@
 import type { AppointmentType } from '@/generated/prisma/client';
 
-/** Pastel discret : lavande (urgence), menthe (1ʳᵉ visite), bleu ciel (suivi) */
+/** Pastel discret : lavande (urgence), menthe (1ʳᵉ visite), bleu ciel (contrôle) */
 export function colorForAppointmentType(
   t: AppointmentType | null | undefined
 ): string {

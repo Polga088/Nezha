@@ -97,9 +97,9 @@ const TYPE_PILL: Record<string, { className: string; label: string }> = {
     label: '1ère visite',
   },
   FOLLOW_UP: {
-    className:
-      'border-0 bg-sky-100/80 text-[10px] font-semibold uppercase tracking-wider text-sky-800/85',
-    label: 'SUIVI',
+      className:
+        'border-0 bg-sky-100/80 text-[10px] font-semibold uppercase tracking-wider text-sky-800/85',
+    label: 'CONTRÔLE',
   },
 }
 

@@ -24,7 +24,7 @@ const RDV_TYPE_OPTIONS: Array<{
   },
   {
     type: 'FOLLOW_UP',
-    label: 'Suivi',
+    label: 'Contrôle',
     description: 'Contrôle, renouvellement de traitement ou rendez-vous de routine.',
   },
 ];

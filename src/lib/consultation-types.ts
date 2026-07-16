@@ -21,7 +21,7 @@ export const CONSULTATION_TYPE_LABELS: Record<ConsultationTypeValue, string> = {
   FIRST_CONSULTATION: 'Première consultation',
   CONSULTATION: 'Consultation',
   CONTROL: 'Consultation de contrôle',
-  FOLLOW_UP: 'Suivi',
+  FOLLOW_UP: 'Contrôle',
   EMERGENCY: 'Urgence',
   VACCINATION: 'Vaccination',
   ANNUAL_VISIT: 'Visite annuelle',

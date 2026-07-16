@@ -713,7 +713,7 @@ function AgendaPageContent() {
               <Label>Motif de Consultation</Label>
               <Input
                 required
-                placeholder="Ex: Suivi, Urgence..."
+                placeholder="Ex: Contrôle, Urgence..."
                 value={motif}
                 onChange={(e) => setMotif(e.target.value)}
               />
