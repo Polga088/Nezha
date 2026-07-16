@@ -30,6 +30,12 @@ export type PublicReservationSlot = {
   label: string;
 };
 
+export type PublicReservationInsuranceType = {
+  id: string;
+  code: string;
+  label: string;
+};
+
 export type PublicReservationConfig = {
   branding: {
     cabinetName: string;
@@ -42,6 +48,7 @@ export type PublicReservationConfig = {
     openingHours: Array<{ jour: string; plage: string }>;
   };
   doctors: PublicReservationDoctorAvailability[];
+  insuranceTypes: PublicReservationInsuranceType[];
   cndp: {
     text: string;
     version: string | null;
@@ -144,4 +151,3 @@ export function buildPublicReservationSlots(
   }
   return slots;
 }
-

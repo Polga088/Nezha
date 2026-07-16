@@ -62,6 +62,16 @@ export async function getPublicReservationConfigData(): Promise<PublicReservatio
     orderBy: [{ nom: 'asc' }, { id: 'asc' }],
   })) as PublicReservationDoctorsRow[];
 
+  const insuranceTypes = await prisma.insuranceType.findMany({
+    where: { isActive: true },
+    orderBy: [{ name: 'asc' }, { id: 'asc' }],
+    select: {
+      id: true,
+      code: true,
+      name: true,
+    },
+  });
+
   return {
     branding,
     doctors: doctors.map((doctor) => ({
@@ -70,6 +80,11 @@ export async function getPublicReservationConfigData(): Promise<PublicReservatio
       specialite: doctor.specialite?.trim() || null,
       weekly: weeklyFromDb(doctor.doctorAvailability?.weekly ?? null),
       updatedAt: doctor.doctorAvailability?.updatedAt?.toISOString() ?? null,
+    })),
+    insuranceTypes: insuranceTypes.map((type) => ({
+      id: type.id,
+      code: type.code,
+      label: type.name?.trim() || type.code,
     })),
     cndp: {
       text:
@@ -210,6 +225,7 @@ type PatientMatchInput = {
   cin: string | null;
   adresse: string | null;
   sexe: 'MASCULIN' | 'FEMININ' | null;
+  insuranceTypeId?: string | null;
 };
 
 type PatientMatchResult =
@@ -290,6 +306,7 @@ async function resolvePublicPatientMatch(
       cin: input.cin ?? undefined,
       adresse: input.adresse ?? undefined,
       sexe: input.sexe ?? undefined,
+      insuranceTypeId: input.insuranceTypeId ?? undefined,
     },
     select: { id: true },
   });
@@ -316,6 +333,7 @@ export type PublicReservationCreateInput = {
   consentTextSnapshot?: unknown;
   honeypot?: unknown;
   reservationSource?: unknown;
+  insuranceTypeId?: unknown;
 };
 
 export async function createPublicReservation(input: PublicReservationCreateInput, cndpVersion: string | null, cndpText: string) {
@@ -338,6 +356,10 @@ export async function createPublicReservation(input: PublicReservationCreateInpu
   const cleanAdresse = normalizePublicText(input.adresse, 200);
   const cleanSexe = normalizePublicSexe(input.sexe);
   const cleanDateNaissance = parsePublicDateOnly(input.date_naissance);
+  const cleanInsuranceTypeId =
+    typeof input.insuranceTypeId === 'string' && input.insuranceTypeId.trim() !== ''
+      ? input.insuranceTypeId.trim()
+      : null;
   const consentAccepted = input.consentAccepted === true || input.consentAccepted === 'true';
   const honeypot = normalizePublicText(input.honeypot, 60);
   const reservationSource =
@@ -365,6 +387,16 @@ export async function createPublicReservation(input: PublicReservationCreateInpu
 
   if (cleanDateNaissance.getTime() > Date.now()) {
     return { ok: false as const, status: 400, message: 'Date de naissance invalide' };
+  }
+
+  if (cleanInsuranceTypeId) {
+    const insuranceType = await prisma.insuranceType.findFirst({
+      where: { id: cleanInsuranceTypeId, isActive: true },
+      select: { id: true },
+    });
+    if (!insuranceType) {
+      return { ok: false as const, status: 400, message: 'Assurance invalide' };
+    }
   }
 
   const targetDoctor = await prisma.user.findFirst({
@@ -420,10 +452,24 @@ export async function createPublicReservation(input: PublicReservationCreateInpu
           cin: cleanCin,
           adresse: cleanAdresse,
           sexe: cleanSexe,
+          insuranceTypeId: cleanInsuranceTypeId,
         });
 
         if (!resolvedPatient.ok) {
           throw new Error(resolvedPatient.message);
+        }
+
+        if (!resolvedPatient.created && cleanInsuranceTypeId) {
+          const existingPatient = await tx.patient.findUnique({
+            where: { id: resolvedPatient.patientId },
+            select: { insuranceTypeId: true },
+          });
+          if (existingPatient && existingPatient.insuranceTypeId === null) {
+            await tx.patient.update({
+              where: { id: resolvedPatient.patientId },
+              data: { insuranceTypeId: cleanInsuranceTypeId },
+            });
+          }
         }
 
         const publicBookingToken = randomBytes(24).toString('hex');

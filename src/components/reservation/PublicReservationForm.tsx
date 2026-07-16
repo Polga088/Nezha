@@ -17,6 +17,7 @@ type ReservationFormValues = {
   doctorId: string;
   date: string;
   time: string;
+  insuranceTypeId: string;
   nom: string;
   prenom: string;
   date_naissance: string;
@@ -51,6 +52,7 @@ export function PublicReservationForm({ initialConfig }: ReservationFormProps) {
     doctorId: initialConfig.doctors[0]?.doctorId ?? '',
     date: todayIsoDate(),
     time: '',
+    insuranceTypeId: '',
     nom: '',
     prenom: '',
     date_naissance: '',
@@ -153,6 +155,7 @@ export function PublicReservationForm({ initialConfig }: ReservationFormProps) {
           sexe: values.sexe,
           tel: values.tel,
           email: values.email,
+          insuranceTypeId: values.insuranceTypeId || null,
           cin: values.cin,
           adresse: values.adresse,
           motif: values.motif,
@@ -359,6 +362,23 @@ export function PublicReservationForm({ initialConfig }: ReservationFormProps) {
                 />
               </label>
             </div>
+
+            <label className="space-y-2 block">
+              <span className="text-sm font-medium text-slate-700">Assurance</span>
+              <select
+                className="clinical-input"
+                value={values.insuranceTypeId}
+                onChange={(event) => update('insuranceTypeId', event.target.value)}
+              >
+                <option value="">Aucune / Non renseignée</option>
+                {config.insuranceTypes.map((insuranceType) => (
+                  <option key={insuranceType.id} value={insuranceType.id}>
+                    {insuranceType.label}
+                    {insuranceType.code ? ` — ${insuranceType.code}` : ''}
+                  </option>
+                ))}
+              </select>
+            </label>
 
             <label className="space-y-2 block">
               <span className="text-sm font-medium text-slate-700">Adresse facultative</span>
