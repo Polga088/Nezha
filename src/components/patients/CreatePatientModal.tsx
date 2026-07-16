@@ -45,7 +45,7 @@ export type PatientCreatePayload = {
   cin?: string;
   email?: string;
   adresse?: string;
-  groupeSanguin?: string;
+  groupeSanguin?: string | null;
   taille?: number;
   poids?: number;
   allergies?: string;
@@ -83,7 +83,7 @@ const DEFAULTS: FormValues = {
   tel: '',
   email: '',
   adresse: '',
-  groupeSanguin: 'A+',
+  groupeSanguin: 'INCONNU',
   taille: '',
   poids: '',
   allergies: '',
@@ -221,7 +221,7 @@ export function CreatePatientModal({
       email: emailTrim === '' ? undefined : emailTrim,
       adresse: adresseTrim === '' ? undefined : adresseTrim,
       groupeSanguin:
-        values.groupeSanguin === 'INCONNU' ? undefined : values.groupeSanguin,
+        values.groupeSanguin === 'INCONNU' ? null : values.groupeSanguin,
       taille,
       poids,
       allergies: allergiesTrim === '' ? undefined : allergiesTrim,
@@ -394,7 +394,7 @@ export function CreatePatientModal({
             <div className="space-y-2">
               <Label>Groupe sanguin</Label>
               <Select
-                value={groupeSanguin ?? 'A+'}
+                value={groupeSanguin ?? 'INCONNU'}
                 onValueChange={(v) =>
                   setValue(
                     'groupeSanguin',

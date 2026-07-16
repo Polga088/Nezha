@@ -167,6 +167,11 @@ export async function POST(request: NextRequest) {
       tel === undefined || tel === null ? '' : String(tel).trim();
     const telNormalized = telTrimmed === '' ? undefined : telTrimmed;
 
+    const normalizedGroupeSanguin =
+      groupe === undefined || groupe === null || groupe === '' || groupe === 'INCONNU'
+        ? null
+        : String(groupe);
+
     const newPatient = await prisma.patient.create({
       data: {
         nom: String(nom).trim(),
@@ -179,7 +184,7 @@ export async function POST(request: NextRequest) {
         antecedents: antecedents !== undefined && antecedents !== '' ? String(antecedents) : undefined,
         cin: cin !== undefined && cin !== '' ? String(cin).trim() : undefined,
         sexe,
-        groupeSanguin: groupe !== undefined && groupe !== '' && groupe !== 'INCONNU' ? String(groupe) : undefined,
+        groupeSanguin: normalizedGroupeSanguin,
         taille,
         poids,
         assuranceType,

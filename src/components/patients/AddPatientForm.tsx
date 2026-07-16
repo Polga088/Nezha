@@ -67,7 +67,7 @@ const DEFAULT_PATIENT_VALUES: PatientFormValues = {
   adresse: '',
   insuranceTypeId: '',
   matriculeAssurance: '',
-  groupeSanguin: 'A+',
+  groupeSanguin: 'INCONNU',
   taille: '',
   poids: '',
   allergies: '',
@@ -141,6 +141,8 @@ export default function AddPatientForm({ onSuccess, onCancel }: AddPatientFormPr
         ...(values.insuranceTypeId ?
           { insuranceTypeId: values.insuranceTypeId }
         : {}),
+        groupeSanguin:
+          values.groupeSanguin === 'INCONNU' ? null : values.groupeSanguin,
         matriculeAssurance: matriculeTrim === '' ? undefined : matriculeTrim,
         taille:
           taille !== undefined && Number.isFinite(taille) ? taille : undefined,
@@ -340,7 +342,7 @@ export default function AddPatientForm({ onSuccess, onCancel }: AddPatientFormPr
                 <FormItem>
                   <FormLabel>Groupe Sanguin</FormLabel>
                   <Select
-                    value={field.value ?? 'A+'}
+                    value={field.value ?? 'INCONNU'}
                     onValueChange={field.onChange}
                   >
                     <FormControl>
