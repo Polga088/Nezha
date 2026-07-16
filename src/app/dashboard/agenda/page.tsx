@@ -17,6 +17,7 @@ import { PlanifierUnCreneau, type InitialPresence } from '@/components/agenda/Pl
 import type { AppointmentType, BookingChannel } from '@/generated/prisma/client';
 import { colorForAppointmentType } from '@/lib/appointment-types';
 import { getAppointmentWorkflowLabel, isPublicReservationPending } from '@/lib/appointment-status';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
 import {
   AlertDialog,
@@ -85,6 +86,18 @@ function formatPatientBirthDate(value: string | null): string | null {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return null;
   return format(date, 'dd/MM/yyyy');
+}
+
+function getPatientInitials(patient: PatientSearchResult) {
+  const first = patient.prenom.trim().charAt(0) || '';
+  const last = patient.nom.trim().charAt(0) || '';
+  return `${first}${last}`.toUpperCase() || '??';
+}
+
+function maskCin(value: string | null): string | null {
+  if (!value) return null;
+  if (value.length <= 4) return value;
+  return `${'•'.repeat(Math.max(0, value.length - 4))}${value.slice(-4)}`;
 }
 
 const appointmentsFetcher = async (url: string) => {
@@ -751,20 +764,29 @@ function AgendaPageContent() {
                               <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                             </Button>
                           </PopoverTrigger>
-                          <PopoverContent className="w-[min(92vw,32rem)] p-0" align="start">
-                            <Command shouldFilter={false}>
+                          <PopoverContent
+                            align="start"
+                            sideOffset={8}
+                            className="w-[var(--radix-popover-trigger-width)] max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-2xl border border-slate-200 bg-white p-0 shadow-xl"
+                          >
+                            <Command shouldFilter={false} className="w-full rounded-none border-0 bg-white">
                               <CommandInput
                                 value={patientSearchQuery}
                                 onValueChange={(value) => setPatientSearchQuery(value)}
                                 placeholder="Rechercher un patient par nom, prénom, téléphone ou CIN…"
                               />
-                              <CommandList>
+                              <CommandList className="max-h-[340px] overflow-y-auto">
                                 {patientSearchLoading ? (
-                                  <CommandEmpty>Recherche en cours…</CommandEmpty>
+                                  <CommandEmpty>
+                                    <div className="flex items-center justify-center gap-2 py-4">
+                                      <Loader2 className="h-4 w-4 animate-spin text-slate-500" />
+                                      <span>Recherche en cours…</span>
+                                    </div>
+                                  </CommandEmpty>
                                 ) : patientSearchError ? (
-                                  <CommandEmpty>{patientSearchError}</CommandEmpty>
+                                  <CommandEmpty>Impossible de charger les patients</CommandEmpty>
                                 ) : patientSearchQuery.trim().length < PATIENT_SEARCH_MIN_CHARS ? (
-                                  <CommandEmpty>Au moins 2 caractères requis.</CommandEmpty>
+                                  <CommandEmpty>Saisissez au moins 2 caractères</CommandEmpty>
                                 ) : patientSearchResults.length === 0 ? (
                                   <CommandEmpty>Aucun patient correspondant</CommandEmpty>
                                 ) : null}
@@ -773,6 +795,7 @@ function AgendaPageContent() {
                                     <CommandItem
                                       key={patient.id}
                                       value={patient.id}
+                                      className="items-start gap-3 px-3 py-3"
                                       onSelect={() => {
                                         setSelectedPatientId(patient.id);
                                         setSelectedPatient(patient);
@@ -782,22 +805,31 @@ function AgendaPageContent() {
                                         setPatientSearchError(null);
                                       }}
                                     >
-                                      <Check
-                                        className={cn(
-                                          'mr-2 h-4 w-4',
-                                          selectedPatientId === patient.id ? 'opacity-100' : 'opacity-0'
-                                        )}
-                                      />
-                                      <div className="min-w-0">
-                                        <div className="truncate font-medium">
-                                          {patient.prenom} {patient.nom.toUpperCase()}
+                                      <Avatar className="mt-0.5 h-9 w-9 shrink-0 rounded-xl border border-slate-200 bg-slate-50">
+                                        <AvatarFallback className="rounded-xl bg-slate-100 text-[11px] font-semibold text-slate-700">
+                                          {getPatientInitials(patient)}
+                                        </AvatarFallback>
+                                      </Avatar>
+                                      <div className="min-w-0 flex-1">
+                                        <div className="flex items-start justify-between gap-2">
+                                          <div className="truncate font-semibold text-slate-900">
+                                            {patient.prenom} {patient.nom.toUpperCase()}
+                                          </div>
+                                          <Check
+                                            className={cn(
+                                              'mt-0.5 h-4 w-4 shrink-0',
+                                              selectedPatientId === patient.id
+                                                ? 'text-blue-600 opacity-100'
+                                                : 'opacity-0'
+                                            )}
+                                          />
                                         </div>
-                                        <div className="text-xs text-slate-500">
-                                          {patient.tel ? `${patient.tel}` : 'Téléphone non renseigné'}
-                                          {patient.date_naissance
-                                            ? ` · Né le ${formatPatientBirthDate(patient.date_naissance)}`
-                                            : ''}
-                                          {patient.cin ? ` · CIN: ${patient.cin}` : ''}
+                                        <div className="mt-1 flex flex-wrap gap-x-2 gap-y-0.5 text-xs text-slate-500">
+                                          <span>{patient.tel ? patient.tel : 'Téléphone non renseigné'}</span>
+                                          {patient.date_naissance ? (
+                                            <span>· Né le {formatPatientBirthDate(patient.date_naissance)}</span>
+                                          ) : null}
+                                          {maskCin(patient.cin) ? <span>· CIN {maskCin(patient.cin)}</span> : null}
                                         </div>
                                       </div>
                                     </CommandItem>
@@ -808,32 +840,52 @@ function AgendaPageContent() {
                           </PopoverContent>
                         </Popover>
                         {selectedPatient || selectedPatientId ? (
-                          <div className="flex items-center justify-between gap-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
-                            <div className="min-w-0">
-                              <div className="font-medium text-slate-900">
-                                {selectedPatient
-                                  ? `${selectedPatient.prenom} ${selectedPatient.nom.toUpperCase()}`
-                                  : 'Patient sélectionné'}
+                          <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+                            <div className="flex items-start gap-3">
+                              <Avatar className="h-10 w-10 shrink-0 rounded-xl border border-slate-200 bg-slate-50">
+                                <AvatarFallback className="rounded-xl bg-slate-100 text-xs font-semibold text-slate-700">
+                                  {selectedPatient ? getPatientInitials(selectedPatient) : 'PT'}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className="min-w-0 flex-1">
+                                <div className="font-semibold text-slate-900">
+                                  {selectedPatient
+                                    ? `${selectedPatient.prenom} ${selectedPatient.nom.toUpperCase()}`
+                                    : 'Patient sélectionné'}
+                                </div>
+                                <div className="mt-0.5 text-xs text-slate-500">
+                                  {selectedPatient?.tel ?? 'Téléphone non renseigné'}
+                                  {selectedPatient?.date_naissance
+                                    ? ` · Né le ${formatPatientBirthDate(selectedPatient.date_naissance)}`
+                                    : ''}
+                                </div>
                               </div>
-                              {selectedPatient?.tel ? (
-                                <div className="text-xs text-slate-500">{selectedPatient.tel}</div>
-                              ) : null}
+                              <div className="flex shrink-0 items-center gap-1">
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  className="h-8 px-2 text-slate-600 hover:text-slate-900"
+                                  onClick={() => setPatientSearchOpen(true)}
+                                >
+                                  Changer
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  className="h-8 px-2 text-slate-500 hover:text-slate-900"
+                                  onClick={() => {
+                                    setSelectedPatientId('');
+                                    setSelectedPatient(null);
+                                    setPatientSearchQuery('');
+                                    setPatientSearchResults([]);
+                                    setPatientSearchError(null);
+                                  }}
+                                >
+                                  <X className="h-4 w-4" />
+                                  Retirer
+                                </Button>
+                              </div>
                             </div>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              className="h-8 shrink-0 px-2 text-slate-500 hover:text-slate-900"
-                              onClick={() => {
-                                setSelectedPatientId('');
-                                setSelectedPatient(null);
-                                setPatientSearchQuery('');
-                                setPatientSearchResults([]);
-                                setPatientSearchError(null);
-                              }}
-                            >
-                              <X className="h-4 w-4" />
-                              Retirer
-                            </Button>
                           </div>
                         ) : null}
                         {prefillTelDisplay ? (
