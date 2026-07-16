@@ -8,8 +8,8 @@ import { getPublicCabinetBranding } from '@/lib/get-public-cabinet-branding';
 export async function generateMetadata(): Promise<Metadata> {
   const b = await getPublicCabinetBranding();
   return {
-    title: `${b.cabinetName} — Accueil`,
-    description: `Cabinet médical ${b.cabinetName} — ${b.doctorDisplayName}. Contact, horaires et vérification de documents.`,
+    title: `${b.publicMetaTitle} — Accueil`,
+    description: b.publicMetaDescription,
   };
 }
 

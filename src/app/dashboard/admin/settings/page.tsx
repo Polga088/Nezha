@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
 import { AdminCabinetBrandingForm, type BrandingInitial } from '@/components/admin/AdminCabinetBrandingForm';
+import { AdminPublicLandingForm } from '@/components/admin/AdminPublicLandingForm';
 import { AdminStaffSection } from '@/components/admin/AdminStaffSection';
 import {
   CABINET_PAYMENT_LABELS,
@@ -43,6 +44,36 @@ type SettingsDto = {
   cabinetCityLine: string | null;
   doctorInpe: string | null;
   doctorSpecialty: string | null;
+  publicSiteName: string | null;
+  publicDoctorDisplayName: string | null;
+  publicSpecialty: string | null;
+  publicHeroEyebrow: string | null;
+  publicHeroTitle: string | null;
+  publicHeroDescription: string | null;
+  publicPrimaryButtonLabel: string | null;
+  publicSecondaryButtonLabel: string | null;
+  publicFeature1Title: string | null;
+  publicFeature1Description: string | null;
+  publicFeature2Title: string | null;
+  publicFeature2Description: string | null;
+  publicFeature3Title: string | null;
+  publicFeature3Description: string | null;
+  publicMetaTitle: string | null;
+  publicMetaDescription: string | null;
+  publicHeroBackgroundMode: string | null;
+  publicHeroBackgroundGradientFrom: string | null;
+  publicHeroBackgroundGradientTo: string | null;
+  publicHeroBackgroundGradientDirection: string | null;
+  publicHeroBackgroundImageUrl: string | null;
+  publicHeroBackgroundOverlay: number | null;
+  publicHeroBackgroundSliderIntervalMs: number | null;
+  publicHeroSlides: Array<{
+    id: string;
+    imageUrl: string;
+    altText: string | null;
+    position: number;
+    isActive: boolean;
+  }>;
   mapEmbedUrl: string | null;
   openingHours: unknown;
   publicReservationCndpText: string | null;
@@ -135,6 +166,59 @@ export default function AdminSettingsPage() {
     };
   }, [settings]);
 
+  const publicLandingInitial = useMemo(() => {
+    if (!settings) return null;
+    return {
+      publicSiteName: settings.publicSiteName ?? '',
+      publicDoctorDisplayName: settings.publicDoctorDisplayName ?? '',
+      publicSpecialty: settings.publicSpecialty ?? '',
+      publicHeroEyebrow: settings.publicHeroEyebrow ?? '',
+      publicHeroTitle: settings.publicHeroTitle ?? '',
+      publicHeroDescription: settings.publicHeroDescription ?? '',
+      publicPrimaryButtonLabel: settings.publicPrimaryButtonLabel ?? '',
+      publicSecondaryButtonLabel: settings.publicSecondaryButtonLabel ?? '',
+      publicFeature1Title: settings.publicFeature1Title ?? '',
+      publicFeature1Description: settings.publicFeature1Description ?? '',
+      publicFeature2Title: settings.publicFeature2Title ?? '',
+      publicFeature2Description: settings.publicFeature2Description ?? '',
+      publicFeature3Title: settings.publicFeature3Title ?? '',
+      publicFeature3Description: settings.publicFeature3Description ?? '',
+      publicMetaTitle: settings.publicMetaTitle ?? '',
+      publicMetaDescription: settings.publicMetaDescription ?? '',
+      publicHeroBackgroundMode: (settings.publicHeroBackgroundMode ?? 'GRADIENT') as
+        | 'GRADIENT'
+        | 'IMAGE'
+        | 'SLIDER'
+        | 'ANIMATED',
+      publicHeroBackgroundGradientFrom: (settings.publicHeroBackgroundGradientFrom ?? 'blue-600') as
+        | 'slate-900'
+        | 'blue-600'
+        | 'indigo-600'
+        | 'sky-600'
+        | 'emerald-600'
+        | 'violet-600'
+        | 'rose-600',
+      publicHeroBackgroundGradientTo: (settings.publicHeroBackgroundGradientTo ?? 'indigo-600') as
+        | 'slate-900'
+        | 'blue-600'
+        | 'indigo-600'
+        | 'sky-600'
+        | 'emerald-600'
+        | 'violet-600'
+        | 'rose-600',
+      publicHeroBackgroundGradientDirection: (settings.publicHeroBackgroundGradientDirection ?? 'to-br') as
+        | 'to-r'
+        | 'to-br'
+        | 'to-b'
+        | 'to-tr'
+        | 'to-l',
+      publicHeroBackgroundImageUrl: settings.publicHeroBackgroundImageUrl ?? '',
+      publicHeroBackgroundOverlay: settings.publicHeroBackgroundOverlay ?? 0.35,
+      publicHeroBackgroundSliderIntervalMs: settings.publicHeroBackgroundSliderIntervalMs ?? 7000,
+      publicHeroSlides: settings.publicHeroSlides ?? [],
+    };
+  }, [settings]);
+
   const onSubmitFinancial = async (e: React.FormEvent) => {
     e.preventDefault();
     const price = parseFloat(defaultConsultationPrice.replace(',', '.'));
@@ -205,6 +289,17 @@ export default function AdminSettingsPage() {
         </h2>
         <AdminCabinetBrandingForm
           initial={brandingInitial}
+          loading={loading}
+          onSaved={() => load({ silent: true })}
+        />
+      </section>
+
+      <section>
+        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-on-surface-variant">
+          Page publique & hero
+        </h2>
+        <AdminPublicLandingForm
+          initial={publicLandingInitial}
           loading={loading}
           onSaved={() => load({ silent: true })}
         />

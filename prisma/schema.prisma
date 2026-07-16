@@ -161,10 +161,48 @@ model GlobalSettings {
   smtpUser   String?
   smtpPass   String?
   smtpFrom   String?
+  publicSiteName String?
+  publicDoctorDisplayName String?
+  publicSpecialty String?
+  publicHeroEyebrow String?
+  publicHeroTitle String?
+  publicHeroDescription String?
+  publicPrimaryButtonLabel String?
+  publicSecondaryButtonLabel String?
+  publicFeature1Title String?
+  publicFeature1Description String?
+  publicFeature2Title String?
+  publicFeature2Description String?
+  publicFeature3Title String?
+  publicFeature3Description String?
+  publicMetaTitle String?
+  publicMetaDescription String?
+  publicHeroBackgroundMode String?
+  publicHeroBackgroundGradientFrom String?
+  publicHeroBackgroundGradientTo String?
+  publicHeroBackgroundGradientDirection String?
+  publicHeroBackgroundImageUrl String?
+  publicHeroBackgroundOverlay Float?
+  publicHeroBackgroundSliderIntervalMs Int?
   publicReservationCndpText String? @db.Text
   publicReservationCndpVersion String?
   publicReservationPrivacyUrl String?
+  publicHeroSlides PublicHeroSlide[]
   updatedAt                DateTime   @updatedAt
+}
+
+model PublicHeroSlide {
+  id         String   @id @default(uuid())
+  settingsId  String   @default("default")
+  settings    GlobalSettings @relation(fields: [settingsId], references: [id], onDelete: Cascade)
+  imageUrl   String
+  altText    String?
+  position   Int      @default(0)
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([settingsId, position])
 }
 
 /// Ordonnances enregistrées (historique + PDF).

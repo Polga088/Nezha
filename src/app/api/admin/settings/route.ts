@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { parseBrandingPatch } from '@/lib/cabinet-branding';
+import { parseBrandingPatch, parsePublicLandingPatch } from '@/lib/cabinet-branding';
 import { ensureGlobalSettings } from '@/lib/global-settings';
 import { requireAdmin } from '@/lib/requireAdmin';
 import { requireStaff } from '@/lib/requireStaff';
@@ -36,6 +36,32 @@ const PUBLIC_RESERVATION_PATCH_KEYS = [
   'publicReservationPrivacyUrl',
 ] as const;
 
+const PUBLIC_LANDING_PATCH_KEYS = [
+  'publicSiteName',
+  'publicDoctorDisplayName',
+  'publicSpecialty',
+  'publicHeroEyebrow',
+  'publicHeroTitle',
+  'publicHeroDescription',
+  'publicPrimaryButtonLabel',
+  'publicSecondaryButtonLabel',
+  'publicFeature1Title',
+  'publicFeature1Description',
+  'publicFeature2Title',
+  'publicFeature2Description',
+  'publicFeature3Title',
+  'publicFeature3Description',
+  'publicMetaTitle',
+  'publicMetaDescription',
+  'publicHeroBackgroundMode',
+  'publicHeroBackgroundGradientFrom',
+  'publicHeroBackgroundGradientTo',
+  'publicHeroBackgroundGradientDirection',
+  'publicHeroBackgroundImageUrl',
+  'publicHeroBackgroundOverlay',
+  'publicHeroBackgroundSliderIntervalMs',
+] as const;
+
 function normalizePaymentMethods(input: unknown): string[] | null {
   if (!Array.isArray(input)) return null;
   const out: string[] = [];
@@ -52,6 +78,10 @@ function hasBrandingKeys(body: Record<string, unknown>): boolean {
 
 function hasPublicReservationKeys(body: Record<string, unknown>): boolean {
   return PUBLIC_RESERVATION_PATCH_KEYS.some((k) => k in body);
+}
+
+function hasPublicLandingKeys(body: Record<string, unknown>): boolean {
+  return PUBLIC_LANDING_PATCH_KEYS.some((k) => k in body) || 'publicHeroSlides' in body;
 }
 
 const SMTP_PATCH_KEYS = [
@@ -72,6 +102,17 @@ export async function GET(request: NextRequest) {
   if (!auth.ok) return auth.response;
 
   const row = await ensureGlobalSettings();
+  const publicHeroSlides = await prisma.publicHeroSlide.findMany({
+    where: { settingsId: row.id },
+    orderBy: [{ position: 'asc' }, { id: 'asc' }],
+    select: {
+      id: true,
+      imageUrl: true,
+      altText: true,
+      position: true,
+      isActive: true,
+    },
+  });
   return NextResponse.json({
     id: row.id,
     currency: row.currency,
@@ -87,6 +128,30 @@ export async function GET(request: NextRequest) {
     cabinetCityLine: row.cabinetCityLine,
     doctorInpe: row.doctorInpe,
     doctorSpecialty: row.doctorSpecialty,
+    publicSiteName: row.publicSiteName,
+    publicDoctorDisplayName: row.publicDoctorDisplayName,
+    publicSpecialty: row.publicSpecialty,
+    publicHeroEyebrow: row.publicHeroEyebrow,
+    publicHeroTitle: row.publicHeroTitle,
+    publicHeroDescription: row.publicHeroDescription,
+    publicPrimaryButtonLabel: row.publicPrimaryButtonLabel,
+    publicSecondaryButtonLabel: row.publicSecondaryButtonLabel,
+    publicFeature1Title: row.publicFeature1Title,
+    publicFeature1Description: row.publicFeature1Description,
+    publicFeature2Title: row.publicFeature2Title,
+    publicFeature2Description: row.publicFeature2Description,
+    publicFeature3Title: row.publicFeature3Title,
+    publicFeature3Description: row.publicFeature3Description,
+    publicMetaTitle: row.publicMetaTitle,
+    publicMetaDescription: row.publicMetaDescription,
+    publicHeroBackgroundMode: row.publicHeroBackgroundMode,
+    publicHeroBackgroundGradientFrom: row.publicHeroBackgroundGradientFrom,
+    publicHeroBackgroundGradientTo: row.publicHeroBackgroundGradientTo,
+    publicHeroBackgroundGradientDirection: row.publicHeroBackgroundGradientDirection,
+    publicHeroBackgroundImageUrl: row.publicHeroBackgroundImageUrl,
+    publicHeroBackgroundOverlay: row.publicHeroBackgroundOverlay,
+    publicHeroBackgroundSliderIntervalMs: row.publicHeroBackgroundSliderIntervalMs,
+    publicHeroSlides,
     mapEmbedUrl: row.mapEmbedUrl,
     openingHours: row.openingHours,
     publicReservationCndpText: row.publicReservationCndpText,
@@ -120,6 +185,8 @@ export async function PATCH(request: NextRequest) {
       'publicReservationCndpVersion' in body ? body.publicReservationCndpVersion : undefined;
     const privacyUrlIn =
       'publicReservationPrivacyUrl' in body ? body.publicReservationPrivacyUrl : undefined;
+    const landingIn = hasPublicLandingKeys(body) ? parsePublicLandingPatch(body) : null;
+    const slidesIn = 'publicHeroSlides' in body ? body.publicHeroSlides : undefined;
 
     const hasFinancial =
       currencyIn !== undefined ||
@@ -129,13 +196,14 @@ export async function PATCH(request: NextRequest) {
 
     const brandingPresent = hasBrandingKeys(body);
     const publicReservationPresent = hasPublicReservationKeys(body);
+    const publicLandingPresent = hasPublicLandingKeys(body);
     const smtpPresent = hasSmtpKeys(body);
 
-    if (!hasFinancial && !brandingPresent && !publicReservationPresent && !smtpPresent) {
+    if (!hasFinancial && !brandingPresent && !publicReservationPresent && !publicLandingPresent && !smtpPresent) {
       return NextResponse.json(
         {
           error:
-            'Fournir au moins un champ : devise, prix, paiements, signature, identité cabinet, réservation publique, ou configuration SMTP',
+            'Fournir au moins un champ : devise, prix, paiements, signature, identité cabinet, page publique, réservation publique, ou configuration SMTP',
         },
         { status: 400 }
       );
@@ -205,6 +273,14 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'publicReservationPrivacyUrl doit être une chaîne ou null' }, { status: 400 });
     }
 
+    if (landingIn && !landingIn.ok) {
+      return NextResponse.json({ error: landingIn.error }, { status: 400 });
+    }
+
+    if ('publicHeroSlides' in body && !Array.isArray(slidesIn)) {
+      return NextResponse.json({ error: 'publicHeroSlides doit être un tableau' }, { status: 400 });
+    }
+
     let brandingParsed: ReturnType<typeof parseBrandingPatch> | null = null;
     if (brandingPresent) {
       brandingParsed = parseBrandingPatch(body);
@@ -259,6 +335,39 @@ export async function PATCH(request: NextRequest) {
       if (b.doctorSpecialty !== undefined) data.doctorSpecialty = b.doctorSpecialty;
       if (b.mapEmbedUrl !== undefined) data.mapEmbedUrl = b.mapEmbedUrl;
       if (b.openingHours !== undefined) data.openingHours = b.openingHours;
+    }
+
+    if (landingIn?.ok) {
+      const landing = landingIn.data;
+      if (landing.publicSiteName !== undefined) data.publicSiteName = landing.publicSiteName;
+      if (landing.publicDoctorDisplayName !== undefined) data.publicDoctorDisplayName = landing.publicDoctorDisplayName;
+      if (landing.publicSpecialty !== undefined) data.publicSpecialty = landing.publicSpecialty;
+      if (landing.publicHeroEyebrow !== undefined) data.publicHeroEyebrow = landing.publicHeroEyebrow;
+      if (landing.publicHeroTitle !== undefined) data.publicHeroTitle = landing.publicHeroTitle;
+      if (landing.publicHeroDescription !== undefined) data.publicHeroDescription = landing.publicHeroDescription;
+      if (landing.publicPrimaryButtonLabel !== undefined) data.publicPrimaryButtonLabel = landing.publicPrimaryButtonLabel;
+      if (landing.publicSecondaryButtonLabel !== undefined) data.publicSecondaryButtonLabel = landing.publicSecondaryButtonLabel;
+      if (landing.publicFeature1Title !== undefined) data.publicFeature1Title = landing.publicFeature1Title;
+      if (landing.publicFeature1Description !== undefined) data.publicFeature1Description = landing.publicFeature1Description;
+      if (landing.publicFeature2Title !== undefined) data.publicFeature2Title = landing.publicFeature2Title;
+      if (landing.publicFeature2Description !== undefined) data.publicFeature2Description = landing.publicFeature2Description;
+      if (landing.publicFeature3Title !== undefined) data.publicFeature3Title = landing.publicFeature3Title;
+      if (landing.publicFeature3Description !== undefined) data.publicFeature3Description = landing.publicFeature3Description;
+      if (landing.publicMetaTitle !== undefined) data.publicMetaTitle = landing.publicMetaTitle;
+      if (landing.publicMetaDescription !== undefined) data.publicMetaDescription = landing.publicMetaDescription;
+      if (landing.publicHeroBackgroundMode !== undefined) data.publicHeroBackgroundMode = landing.publicHeroBackgroundMode;
+      if (landing.publicHeroBackgroundGradientFrom !== undefined)
+        data.publicHeroBackgroundGradientFrom = landing.publicHeroBackgroundGradientFrom;
+      if (landing.publicHeroBackgroundGradientTo !== undefined)
+        data.publicHeroBackgroundGradientTo = landing.publicHeroBackgroundGradientTo;
+      if (landing.publicHeroBackgroundGradientDirection !== undefined)
+        data.publicHeroBackgroundGradientDirection = landing.publicHeroBackgroundGradientDirection;
+      if (landing.publicHeroBackgroundImageUrl !== undefined)
+        data.publicHeroBackgroundImageUrl = landing.publicHeroBackgroundImageUrl;
+      if (landing.publicHeroBackgroundOverlay !== undefined)
+        data.publicHeroBackgroundOverlay = landing.publicHeroBackgroundOverlay;
+      if (landing.publicHeroBackgroundSliderIntervalMs !== undefined)
+        data.publicHeroBackgroundSliderIntervalMs = landing.publicHeroBackgroundSliderIntervalMs;
     }
 
     if (smtpPresent) {
@@ -336,9 +445,36 @@ export async function PATCH(request: NextRequest) {
       }
     }
 
-    const row = await prisma.globalSettings.update({
-      where: { id: 'default' },
-      data: data as Parameters<typeof prisma.globalSettings.update>[0]['data'],
+    const row = await prisma.$transaction(async (tx) => {
+      const updated = await tx.globalSettings.update({
+        where: { id: 'default' },
+        data: data as Parameters<typeof prisma.globalSettings.update>[0]['data'],
+      });
+
+      if ('publicHeroSlides' in body && Array.isArray(slidesIn)) {
+        for (const slide of slidesIn) {
+          if (!slide || typeof slide !== 'object') {
+            throw new Error('publicHeroSlides invalide');
+          }
+          const rowSlide = slide as Record<string, unknown>;
+          if (typeof rowSlide.id !== 'string' || typeof rowSlide.position !== 'number' || typeof rowSlide.isActive !== 'boolean') {
+            throw new Error('publicHeroSlides invalide');
+          }
+          await tx.publicHeroSlide.update({
+            where: { id: rowSlide.id },
+            data: {
+              altText:
+                typeof rowSlide.altText === 'string'
+                  ? rowSlide.altText.trim() || null
+                  : null,
+              position: rowSlide.position,
+              isActive: rowSlide.isActive,
+            },
+          });
+        }
+      }
+
+      return updated;
     });
 
     return NextResponse.json({
@@ -356,6 +492,34 @@ export async function PATCH(request: NextRequest) {
       cabinetCityLine: row.cabinetCityLine,
       doctorInpe: row.doctorInpe,
       doctorSpecialty: row.doctorSpecialty,
+      publicSiteName: row.publicSiteName,
+      publicDoctorDisplayName: row.publicDoctorDisplayName,
+      publicSpecialty: row.publicSpecialty,
+      publicHeroEyebrow: row.publicHeroEyebrow,
+      publicHeroTitle: row.publicHeroTitle,
+      publicHeroDescription: row.publicHeroDescription,
+      publicPrimaryButtonLabel: row.publicPrimaryButtonLabel,
+      publicSecondaryButtonLabel: row.publicSecondaryButtonLabel,
+      publicFeature1Title: row.publicFeature1Title,
+      publicFeature1Description: row.publicFeature1Description,
+      publicFeature2Title: row.publicFeature2Title,
+      publicFeature2Description: row.publicFeature2Description,
+      publicFeature3Title: row.publicFeature3Title,
+      publicFeature3Description: row.publicFeature3Description,
+      publicMetaTitle: row.publicMetaTitle,
+      publicMetaDescription: row.publicMetaDescription,
+      publicHeroBackgroundMode: row.publicHeroBackgroundMode,
+      publicHeroBackgroundGradientFrom: row.publicHeroBackgroundGradientFrom,
+      publicHeroBackgroundGradientTo: row.publicHeroBackgroundGradientTo,
+      publicHeroBackgroundGradientDirection: row.publicHeroBackgroundGradientDirection,
+      publicHeroBackgroundImageUrl: row.publicHeroBackgroundImageUrl,
+      publicHeroBackgroundOverlay: row.publicHeroBackgroundOverlay,
+      publicHeroBackgroundSliderIntervalMs: row.publicHeroBackgroundSliderIntervalMs,
+      publicHeroSlides: await prisma.publicHeroSlide.findMany({
+        where: { settingsId: row.id },
+        orderBy: [{ position: 'asc' }, { id: 'asc' }],
+        select: { id: true, imageUrl: true, altText: true, position: true, isActive: true },
+      }),
       mapEmbedUrl: row.mapEmbedUrl,
       openingHours: row.openingHours,
       publicReservationCndpText: row.publicReservationCndpText,

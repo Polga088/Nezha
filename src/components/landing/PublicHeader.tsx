@@ -16,7 +16,7 @@ export async function PublicHeader() {
         <Link
           href="/"
           className="group flex min-w-0 items-center gap-2.5 sm:gap-3"
-          aria-label={`${branding.cabinetName} — accueil`}
+          aria-label={`${branding.publicSiteName} — accueil`}
         >
           {branding.logoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element -- URL cabinet dynamique (upload / externe)
@@ -31,7 +31,7 @@ export async function PublicHeader() {
             </span>
           )}
           <span className="truncate text-sm font-semibold tracking-tight text-slate-900 sm:text-base">
-            {branding.cabinetName}
+            {branding.publicSiteName}
           </span>
         </Link>
 

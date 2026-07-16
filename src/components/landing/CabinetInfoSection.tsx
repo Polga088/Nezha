@@ -84,10 +84,13 @@ export function CabinetInfoSection() {
                 <p className="text-xs font-semibold uppercase tracking-wide text-on-surface-variant">
                   Cabinet
                 </p>
-                <h3 className="text-lg font-semibold tracking-tight text-primary">{CABINET.cabinetName}</h3>
+                <h3 className="text-lg font-semibold tracking-tight text-primary">{CABINET.publicSiteName}</h3>
               </div>
             </div>
-            <p className="mb-6 text-sm font-medium leading-relaxed text-primary">{CABINET.doctorDisplayName}</p>
+            <p className="mb-6 text-sm font-medium leading-relaxed text-primary">
+              {CABINET.publicDoctorDisplayName}
+              {CABINET.publicSpecialty ? ` — ${CABINET.publicSpecialty}` : ''}
+            </p>
 
             <ul className="space-y-4">
               <li className="flex gap-3">
