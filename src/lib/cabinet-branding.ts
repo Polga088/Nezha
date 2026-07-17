@@ -169,27 +169,27 @@ export function mergePublicCabinetBranding(row: GlobalSettingsBrandingRow): Publ
     publicDoctorDisplayName:
       row.publicDoctorDisplayName?.trim() || row.doctorDisplayName?.trim() || 'Dr. EL MAAROUFI Nezha',
     publicSpecialty: row.publicSpecialty?.trim() || row.doctorSpecialty?.trim() || 'Médecine générale',
-    publicHeroEyebrow: row.publicHeroEyebrow?.trim() || 'Soins & accompagnement',
+    publicHeroEyebrow: row.publicHeroEyebrow?.trim() || 'Cabinet médical privé',
     publicHeroTitle:
       row.publicHeroTitle?.trim() ||
-      'Prenez rendez-vous, consultez vos informations et suivez votre parcours en toute simplicité.',
+      'Une prise en charge claire, humaine et élégante.',
     publicHeroDescription:
       row.publicHeroDescription?.trim() ||
-      'Un espace clair pour la prise de rendez-vous, les documents médicaux et le contact avec le cabinet.',
-    publicPrimaryButtonLabel: row.publicPrimaryButtonLabel?.trim() || 'Saisir un code document',
+      'Prenez rendez-vous, consultez vos repères utiles et contactez le cabinet dans un espace sobre et rassurant.',
+    publicPrimaryButtonLabel: row.publicPrimaryButtonLabel?.trim() || 'Réserver un rendez-vous',
     publicSecondaryButtonLabel: row.publicSecondaryButtonLabel?.trim() || 'Adresse & horaires',
-    publicFeature1Title: row.publicFeature1Title?.trim() || 'Données protégées',
+    publicFeature1Title: row.publicFeature1Title?.trim() || 'Confidentialité renforcée',
     publicFeature1Description:
       row.publicFeature1Description?.trim() ||
-      "Accès aux documents après vérification d'identité.",
+      'Des échanges simples, protégés et pensés pour la discrétion médicale.',
     publicFeature2Title: row.publicFeature2Title?.trim() || 'Contact direct',
     publicFeature2Description:
       row.publicFeature2Description?.trim() ||
-      'Appelez-nous pour un rendez-vous ou une question.',
-    publicFeature3Title: row.publicFeature3Title?.trim() || 'À votre rythme',
+      'Appelez ou écrivez au cabinet en quelques secondes.',
+    publicFeature3Title: row.publicFeature3Title?.trim() || 'Suivi fluide',
     publicFeature3Description:
       row.publicFeature3Description?.trim() ||
-      'Toutes les infos utiles en bas de page.',
+      'Les informations essentielles restent accessibles au bon moment.',
     publicMetaTitle: row.publicMetaTitle?.trim() || row.cabinetName?.trim() || 'Nezha Medical',
     publicMetaDescription:
       row.publicMetaDescription?.trim() ||

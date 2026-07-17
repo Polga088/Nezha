@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 
 import { PublicHero } from '@/components/landing/PublicHero';
+import { PublicFeatureGrid } from '@/components/landing/PublicFeatureGrid';
 import { PublicVerificationSection } from '@/components/landing/PublicVerificationSection';
 import { CabinetInfoSection } from '@/components/landing/CabinetInfoSection';
 import { getPublicCabinetBranding } from '@/lib/get-public-cabinet-branding';
@@ -19,10 +20,11 @@ export default async function LandingPage() {
   return (
     <>
       <PublicHero branding={branding} />
-      <PublicVerificationSection />
+      <PublicFeatureGrid branding={branding} />
       <div id="infos-cabinet" className="scroll-mt-20">
         <CabinetInfoSection />
       </div>
+      <PublicVerificationSection />
     </>
   );
 }

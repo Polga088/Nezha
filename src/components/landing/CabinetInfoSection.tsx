@@ -1,9 +1,12 @@
 'use client';
 
-import { Phone, Mail, Clock, MapPin, Building2 } from 'lucide-react';
+import { useMemo } from 'react';
+import { Clock4, MapPin, Navigation, Stethoscope } from 'lucide-react';
 import useSWR from 'swr';
 
+import { Button } from '@/components/ui/button';
 import { PUBLIC_CABINET_SWR_KEY, type PublicCabinetBranding } from '@/lib/cabinet-branding';
+import { PublicContactStrip } from '@/components/landing/PublicContactStrip';
 
 const fetcher = async (url: string) => {
   const res = await fetch(url);
@@ -13,22 +16,27 @@ const fetcher = async (url: string) => {
 
 function CabinetInfoSkeleton() {
   return (
-    <section
-      className="border-t border-outline-variant/15 bg-surface py-16 md:py-20"
-      aria-busy="true"
-      aria-label="Chargement des informations cabinet"
-    >
-      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-        <div className="h-8 w-48 animate-pulse rounded-md bg-container-high" />
-        <div className="mt-4 h-10 w-2/3 max-w-md animate-pulse rounded-md bg-container-high" />
-        <div className="mt-8 grid gap-6 lg:grid-cols-3 lg:grid-rows-2">
-          <div className="h-64 animate-pulse rounded-xl bg-container-high lg:col-start-1 lg:row-start-1" />
-          <div className="h-48 animate-pulse rounded-xl bg-container-high lg:col-start-1 lg:row-start-2" />
-          <div className="h-96 animate-pulse rounded-xl bg-container-high lg:col-span-2 lg:row-span-2" />
+    <section className="border-t border-slate-200/80 bg-slate-50/80 py-16 sm:py-20" aria-busy="true">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="h-5 w-40 animate-pulse rounded-full bg-slate-200/80" />
+        <div className="mt-4 h-10 w-full max-w-2xl animate-pulse rounded-2xl bg-slate-200/80" />
+        <div className="mt-10 grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
+          <div className="h-[360px] animate-pulse rounded-[32px] bg-white/70" />
+          <div className="grid gap-6">
+            <div className="h-[170px] animate-pulse rounded-[32px] bg-white/70" />
+            <div className="h-[300px] animate-pulse rounded-[32px] bg-white/70" />
+          </div>
         </div>
       </div>
     </section>
   );
+}
+
+function todayLabel(rows: PublicCabinetBranding['openingHours']) {
+  if (!rows.length) return null;
+  const today = new Date().getDay();
+  const index = today === 0 ? rows.length - 1 : Math.min(today - 1, rows.length - 1);
+  return rows[index] ?? rows[0] ?? null;
 }
 
 export function CabinetInfoSection() {
@@ -36,10 +44,17 @@ export function CabinetInfoSection() {
     revalidateOnFocus: true,
   });
 
+  const directionsHref = useMemo(() => {
+    if (!data) return '#';
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+      `${data.address} ${data.cityLine}`
+    )}`;
+  }, [data]);
+
   if (error && !data) {
     return (
-      <section className="border-t border-outline-variant/15 bg-surface py-16 md:py-20">
-        <div className="mx-auto max-w-6xl px-4 text-center text-sm text-on-surface-variant">
+      <section className="border-t border-slate-200/80 bg-slate-50/80 py-16 sm:py-20">
+        <div className="mx-auto max-w-7xl px-4 text-center text-sm text-slate-500 sm:px-6 lg:px-8">
           Impossible de charger les informations du cabinet.
         </div>
       </section>
@@ -51,132 +66,135 @@ export function CabinetInfoSection() {
   }
 
   const CABINET = data;
+  const nextOpening = todayLabel(CABINET.openingHours);
 
   return (
     <section
-      className="border-t border-outline-variant/15 bg-surface py-16 md:py-20"
+      className="border-t border-slate-200/80 bg-[linear-gradient(180deg,#f8fafc_0%,#ffffff_28%,#f8fafc_100%)] py-16 sm:py-20"
       aria-labelledby="cabinet-info-heading"
     >
-      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-        <div className="mb-10 text-center lg:text-left">
-          <p className="text-sm font-semibold uppercase tracking-wide text-on-surface-variant">
-            Accès & contact
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="max-w-3xl">
+          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-blue-600">
+            Informations cabinet
           </p>
           <h2
             id="cabinet-info-heading"
-            className="mt-2 text-3xl font-semibold tracking-tight text-on-surface md:text-4xl"
+            className="mt-3 text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl"
           >
-            Informations cabinet
+            Coordonnées, horaires et accès réunis dans un bloc plus lisible
           </h2>
-          <p className="mx-auto mt-3 max-w-2xl text-on-surface-variant lg:mx-0">
-            Retrouvez nos coordonnées, nos horaires d’ouverture et l’emplacement du cabinet pour planifier
-            votre venue en toute sérénité.
+          <p className="mt-4 text-base leading-7 text-slate-600">
+            Retrouvez ici les informations pratiques du cabinet, l’emplacement Google Maps et un accès
+            direct vers la réservation.
           </p>
         </div>
 
-        <div className="flex flex-col gap-6 lg:grid lg:grid-cols-3 lg:grid-rows-2 lg:gap-6">
-          <article className="rounded-xl border border-outline-variant/15 bg-container-lowest p-6 shadow-medical lg:col-start-1 lg:row-start-1">
-            <div className="mb-5 flex items-center gap-3">
-              <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                <Building2 className="h-5 w-5" aria-hidden />
-              </span>
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-on-surface-variant">
-                  Cabinet
-                </p>
-                <h3 className="text-lg font-semibold tracking-tight text-primary">{CABINET.publicSiteName}</h3>
+        <div className="mt-10 grid gap-6 lg:grid-cols-[0.95fr_1.05fr] lg:items-start">
+          <div className="space-y-6">
+            <article className="rounded-[32px] border border-slate-200/80 bg-white p-6 shadow-[0_18px_55px_rgba(15,23,42,0.06)] sm:p-8">
+              <div className="flex items-start gap-4">
+                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-700">
+                  <Stethoscope className="h-5 w-5" aria-hidden />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-blue-600">
+                    Cabinet
+                  </p>
+                  <h3 className="mt-1 text-2xl font-semibold tracking-tight text-slate-950">
+                    {CABINET.publicSiteName}
+                  </h3>
+                  <p className="mt-2 text-sm font-medium text-slate-600">
+                    {CABINET.publicDoctorDisplayName}
+                    {CABINET.publicSpecialty ? ` — ${CABINET.publicSpecialty}` : ''}
+                  </p>
+                </div>
               </div>
-            </div>
-            <p className="mb-6 text-sm font-medium leading-relaxed text-primary">
-              {CABINET.publicDoctorDisplayName}
-              {CABINET.publicSpecialty ? ` — ${CABINET.publicSpecialty}` : ''}
-            </p>
 
-            <ul className="space-y-4">
-              <li className="flex gap-3">
-                <MapPin className="mt-0.5 h-5 w-5 shrink-0 text-primary" aria-hidden />
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-on-surface-variant">
-                    Adresse
-                  </p>
-                  <p className="text-sm font-medium text-primary">{CABINET.address}</p>
-                  <p className="text-sm text-primary">{CABINET.cityLine}</p>
-                </div>
-              </li>
-              <li className="flex gap-3">
-                <Phone className="mt-0.5 h-5 w-5 shrink-0 text-primary" aria-hidden />
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-on-surface-variant">
-                    Téléphone
-                  </p>
-                  <a
-                    href={`tel:${CABINET.phone.replace(/\s/g, '')}`}
-                    className="text-sm font-semibold text-primary underline-offset-2 hover:underline"
-                  >
-                    {CABINET.phone}
-                  </a>
-                </div>
-              </li>
-              <li className="flex gap-3">
-                <Mail className="mt-0.5 h-5 w-5 shrink-0 text-primary" aria-hidden />
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-on-surface-variant">
-                    Courriel
-                  </p>
-                  <a
-                    href={`mailto:${CABINET.email}`}
-                    className="break-all text-sm font-semibold text-primary underline-offset-4 hover:underline"
-                  >
-                    {CABINET.email}
-                  </a>
-                </div>
-              </li>
-            </ul>
-          </article>
-
-          <article className="rounded-xl border border-outline-variant/15 bg-container-lowest p-6 shadow-medical lg:col-start-1 lg:row-start-2">
-            <div className="mb-4 flex items-center gap-3">
-              <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                <Clock className="h-5 w-5" aria-hidden />
-              </span>
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-on-surface-variant">
-                  Horaires
-                </p>
-                <h3 className="text-lg font-semibold tracking-tight text-on-surface">Ouverture</h3>
+              <div className="mt-6 space-y-4 rounded-[28px] border border-slate-200/70 bg-slate-50/80 p-5">
+                <PublicContactStrip branding={CABINET} />
               </div>
-            </div>
-            <ul className="space-y-3">
-              {CABINET.openingHours.map((row, idx) => (
-                <li
-                  key={`${idx}-${row.jour}`}
-                  className="flex items-center justify-between gap-4 border-b border-outline-variant/10 pb-3 last:border-0 last:pb-0"
+
+              <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+                <Button
+                  size="lg"
+                  className="h-12 rounded-full bg-slate-950 px-5 text-sm font-semibold text-white shadow-[0_14px_28px_rgba(15,23,42,0.16)] transition hover:-translate-y-0.5 hover:bg-slate-800"
+                  asChild
                 >
-                  <span className="text-sm text-on-surface-variant">{row.jour}</span>
-                  <span className="text-sm font-semibold tabular-nums text-primary">{row.plage}</span>
-                </li>
-              ))}
-            </ul>
-          </article>
+                  <a href={directionsHref} target="_blank" rel="noreferrer" className="gap-2">
+                    <Navigation className="h-4 w-4" aria-hidden />
+                    Voir l’itinéraire
+                  </a>
+                </Button>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="h-12 rounded-full border-slate-200 bg-white px-5 text-sm font-semibold text-slate-800 shadow-sm transition hover:-translate-y-0.5 hover:border-blue-200 hover:bg-blue-50"
+                  asChild
+                >
+                  <a href="/reservation" className="gap-2">
+                    Réserver
+                  </a>
+                </Button>
+              </div>
+            </article>
+          </div>
 
-          <article className="flex min-h-[280px] flex-col overflow-hidden rounded-xl border border-outline-variant/15 bg-container-lowest shadow-medical sm:min-h-[320px] lg:col-span-2 lg:row-span-2 lg:col-start-2 lg:row-start-1 lg:min-h-0">
-            <div className="border-b border-outline-variant/15 px-5 py-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-on-surface-variant">
-                Localisation
-              </p>
-              <p className="mt-1 text-sm font-semibold text-on-surface">Carte du cabinet</p>
-            </div>
-            <div className="relative min-h-[240px] flex-1 bg-container-low">
-              <iframe
-                title={`Carte Google Maps — ${CABINET.cabinetName}`}
-                src={CABINET.mapEmbedUrl}
-                className="absolute inset-0 h-full w-full border-0"
-                loading="lazy"
-                referrerPolicy="no-referrer-when-downgrade"
-                allowFullScreen
-              />
-            </div>
-          </article>
+          <div className="grid gap-6">
+            <article className="rounded-[32px] border border-slate-200/80 bg-white p-6 shadow-[0_18px_55px_rgba(15,23,42,0.06)] sm:p-7">
+              <div className="flex items-center gap-3">
+                <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700">
+                  <Clock4 className="h-5 w-5" aria-hidden />
+                </span>
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-blue-600">
+                    Horaires
+                  </p>
+                  <h3 className="mt-1 text-xl font-semibold tracking-tight text-slate-950">
+                    Ouverture du cabinet
+                  </h3>
+                </div>
+              </div>
+
+              <div className="mt-5 space-y-3">
+                {CABINET.openingHours.map((row) => (
+                  <div
+                    key={row.jour}
+                    className="flex items-center justify-between gap-4 rounded-2xl bg-slate-50 px-4 py-3"
+                  >
+                    <span className="text-sm font-medium text-slate-700">{row.jour}</span>
+                    <span className="text-sm font-semibold text-slate-950">{row.plage}</span>
+                  </div>
+                ))}
+              </div>
+
+              {nextOpening ? (
+                <div className="mt-5 rounded-2xl border border-emerald-100 bg-emerald-50/60 px-4 py-3 text-sm text-emerald-900">
+                  <span className="font-semibold">Prochaine ligne utile :</span> {nextOpening.jour} —{' '}
+                  {nextOpening.plage}
+                </div>
+              ) : null}
+            </article>
+
+            <article className="overflow-hidden rounded-[32px] border border-slate-200/80 bg-white shadow-[0_18px_55px_rgba(15,23,42,0.06)]">
+              <div className="border-b border-slate-200/70 px-6 py-4 sm:px-7">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-blue-600">
+                  Localisation
+                </p>
+                <h3 className="mt-1 text-xl font-semibold tracking-tight text-slate-950">Carte du cabinet</h3>
+              </div>
+              <div className="relative min-h-[320px] bg-slate-100">
+                <iframe
+                  title={`Carte Google Maps — ${CABINET.publicSiteName}`}
+                  src={CABINET.mapEmbedUrl}
+                  className="absolute inset-0 h-full w-full border-0"
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                  allowFullScreen
+                />
+              </div>
+            </article>
+          </div>
         </div>
       </div>
     </section>
