@@ -23,6 +23,7 @@ type CliOptions = {
   limit: number | null;
   patientSourceId: string | null;
   targetDoctorId: string | null;
+  expectedCount: number | null;
 };
 
 type LegacyMedicalHistoryRow = {
@@ -37,6 +38,27 @@ type LegacyMedicalHistoryRow = {
   patientAddress: string | null;
   historicalDate: Date | null;
   registrationTime: Date | null;
+};
+
+type SqlInsertBlock = {
+  columnsSql: string;
+  valuesSql: string;
+};
+
+type ParserStats = {
+  insertBlocksDetected: number;
+  totalTuplesDetected: number;
+  validRows: number;
+  rejectedRows: number;
+  distinctSourcePatientIds: number;
+  firstSourceNoteId: string | null;
+  lastSourceNoteId: string | null;
+  rejectedReasons: Record<string, number>;
+};
+
+type ParsedMedicalHistoryDump = {
+  rows: LegacyMedicalHistoryRow[];
+  stats: ParserStats;
 };
 
 type PatientMatch =
@@ -110,6 +132,7 @@ function parseArgs(argv: string[]): CliOptions {
     limit: null,
     patientSourceId: null,
     targetDoctorId: null,
+    expectedCount: null,
   };
 
   for (let i = 0; i < argv.length; i += 1) {
@@ -140,6 +163,13 @@ function parseArgs(argv: string[]): CliOptions {
     } else if (arg === '--target-doctor-id' && next) {
       options.targetDoctorId = next;
       i += 1;
+    } else if (arg === '--expected-count' && next) {
+      const expectedCount = Number(next);
+      if (!Number.isInteger(expectedCount) || expectedCount <= 0) {
+        throw new Error('--expected-count doit être un entier positif');
+      }
+      options.expectedCount = expectedCount;
+      i += 1;
     } else {
       throw new Error(`Argument inconnu ou incomplet: ${arg}`);
     }
@@ -169,15 +199,15 @@ function splitSqlValuesTuples(valuesSql: string): string[][] {
   const tuples: string[][] = [];
   let currentTuple: string[] | null = null;
   let currentValue = '';
-  let inString = false;
+  let insideString = false;
   let escaped = false;
-  let tupleDepth = 0;
+  let parenthesisDepth = 0;
 
   for (let i = 0; i < valuesSql.length; i += 1) {
     const char = valuesSql[i];
     const next = valuesSql[i + 1];
 
-    if (inString) {
+    if (insideString) {
       currentValue += char;
       if (escaped) {
         escaped = false;
@@ -187,31 +217,31 @@ function splitSqlValuesTuples(valuesSql: string): string[][] {
         currentValue += next;
         i += 1;
       } else if (char === "'") {
-        inString = false;
+        insideString = false;
       }
       continue;
     }
 
     if (char === "'") {
-      inString = true;
+      insideString = true;
       currentValue += char;
       continue;
     }
 
     if (char === '(') {
-      if (tupleDepth === 0) {
+      if (parenthesisDepth === 0) {
         currentTuple = [];
         currentValue = '';
       } else {
         currentValue += char;
       }
-      tupleDepth += 1;
+      parenthesisDepth += 1;
       continue;
     }
 
     if (char === ')') {
-      tupleDepth -= 1;
-      if (tupleDepth === 0) {
+      parenthesisDepth -= 1;
+      if (parenthesisDepth === 0) {
         currentTuple?.push(currentValue.trim());
         if (currentTuple) tuples.push(currentTuple);
         currentTuple = null;
@@ -222,13 +252,13 @@ function splitSqlValuesTuples(valuesSql: string): string[][] {
       continue;
     }
 
-    if (char === ',' && tupleDepth === 1) {
+    if (char === ',' && parenthesisDepth === 1) {
       currentTuple?.push(currentValue.trim());
       currentValue = '';
       continue;
     }
 
-    if (tupleDepth > 0) {
+    if (parenthesisDepth > 0) {
       currentValue += char;
     }
   }
@@ -308,29 +338,199 @@ function cleanHtmlDescription(html: string | null): string | null {
   return decoded || null;
 }
 
-function parseMedicalHistoryDump(sql: string): LegacyMedicalHistoryRow[] {
-  const insertRegex =
-    /INSERT\s+INTO\s+`medical_history`\s*\(([^)]*)\)\s*VALUES\s*([\s\S]*?);/gi;
-  const rows: LegacyMedicalHistoryRow[] = [];
+function findClosingParenthesis(sql: string, openIndex: number): number {
+  let insideString = false;
+  let escaped = false;
+  let parenthesisDepth = 0;
+
+  for (let i = openIndex; i < sql.length; i += 1) {
+    const char = sql[i];
+    const next = sql[i + 1];
+
+    if (insideString) {
+      if (escaped) {
+        escaped = false;
+      } else if (char === '\\') {
+        escaped = true;
+      } else if (char === "'" && next === "'") {
+        i += 1;
+      } else if (char === "'") {
+        insideString = false;
+      }
+      continue;
+    }
+
+    if (char === "'") {
+      insideString = true;
+      continue;
+    }
+    if (char === '(') parenthesisDepth += 1;
+    if (char === ')') {
+      parenthesisDepth -= 1;
+      if (parenthesisDepth === 0) return i;
+    }
+  }
+
+  return -1;
+}
+
+function findSqlStatementEnd(sql: string, startIndex: number): number {
+  let insideString = false;
+  let escaped = false;
+  let parenthesisDepth = 0;
+
+  for (let i = startIndex; i < sql.length; i += 1) {
+    const char = sql[i];
+    const next = sql[i + 1];
+
+    if (insideString) {
+      if (escaped) {
+        escaped = false;
+      } else if (char === '\\') {
+        escaped = true;
+      } else if (char === "'" && next === "'") {
+        i += 1;
+      } else if (char === "'") {
+        insideString = false;
+      }
+      continue;
+    }
+
+    if (char === "'") {
+      insideString = true;
+      continue;
+    }
+    if (char === '(') parenthesisDepth += 1;
+    if (char === ')') parenthesisDepth = Math.max(0, parenthesisDepth - 1);
+    if (char === ';' && parenthesisDepth === 0) return i;
+  }
+
+  return -1;
+}
+
+function parseColumnList(columnsSql: string): string[] {
+  const columns: string[] = [];
+  let current = '';
+  let insideIdentifier = false;
+
+  for (let i = 0; i < columnsSql.length; i += 1) {
+    const char = columnsSql[i];
+    const next = columnsSql[i + 1];
+
+    if (insideIdentifier) {
+      if (char === '`' && next === '`') {
+        current += '`';
+        i += 1;
+      } else if (char === '`') {
+        insideIdentifier = false;
+      } else {
+        current += char;
+      }
+      continue;
+    }
+
+    if (char === '`') {
+      insideIdentifier = true;
+      continue;
+    }
+    if (char === ',') {
+      const column = current.trim();
+      if (column) columns.push(column);
+      current = '';
+      continue;
+    }
+    current += char;
+  }
+
+  const column = current.trim();
+  if (column) columns.push(column);
+  return columns;
+}
+
+function extractMedicalHistoryInsertBlocks(sql: string): SqlInsertBlock[] {
+  const blocks: SqlInsertBlock[] = [];
+  const insertRegex = /INSERT\s+INTO\s+`medical_history`\s*\(/gi;
   let match: RegExpExecArray | null;
 
   while ((match = insertRegex.exec(sql))) {
-    const columns = match[1]
-      .split(',')
-      .map((column) => column.trim().replace(/^`|`$/g, ''));
-    const tuples = splitSqlValuesTuples(match[2]);
+    const columnsOpenIndex = insertRegex.lastIndex - 1;
+    const columnsCloseIndex = findClosingParenthesis(sql, columnsOpenIndex);
+    if (columnsCloseIndex === -1) {
+      throw new Error(`INSERT medical_history invalide: parenthèse de colonnes non fermée à l'index ${match.index}`);
+    }
+
+    const afterColumnsIndex = columnsCloseIndex + 1;
+    const valuesMatch = /^\s*VALUES\b/i.exec(sql.slice(afterColumnsIndex));
+    if (!valuesMatch) {
+      insertRegex.lastIndex = afterColumnsIndex;
+      continue;
+    }
+
+    const valuesStartIndex = afterColumnsIndex + valuesMatch[0].length;
+    const statementEndIndex = findSqlStatementEnd(sql, valuesStartIndex);
+    if (statementEndIndex === -1) {
+      throw new Error(`INSERT medical_history invalide: point-virgule final introuvable à l'index ${match.index}`);
+    }
+
+    blocks.push({
+      columnsSql: sql.slice(columnsOpenIndex + 1, columnsCloseIndex),
+      valuesSql: sql.slice(valuesStartIndex, statementEndIndex),
+    });
+    insertRegex.lastIndex = statementEndIndex + 1;
+  }
+
+  return blocks;
+}
+
+function incrementReason(rejectedReasons: Record<string, number>, reason: string): void {
+  rejectedReasons[reason] = (rejectedReasons[reason] ?? 0) + 1;
+}
+
+function parseMedicalHistoryDump(sql: string): ParsedMedicalHistoryDump {
+  const blocks = extractMedicalHistoryInsertBlocks(sql);
+  const rows: LegacyMedicalHistoryRow[] = [];
+  const rejectedReasons: Record<string, number> = {};
+  let totalTuplesDetected = 0;
+  let firstSourceNoteId: string | null = null;
+  let lastSourceNoteId: string | null = null;
+  const sourcePatientIds = new Set<string>();
+
+  for (const block of blocks) {
+    const columns = parseColumnList(block.columnsSql);
+    const tuples = splitSqlValuesTuples(block.valuesSql);
+    totalTuplesDetected += tuples.length;
 
     for (const tuple of tuples) {
+      if (tuple.length !== columns.length) {
+        incrementReason(
+          rejectedReasons,
+          `Nombre de valeurs invalide: ${tuple.length} au lieu de ${columns.length}`,
+        );
+        continue;
+      }
+
       const record = new Map<string, string | null>();
       columns.forEach((column, index) => {
         record.set(column, unescapeSqlString(tuple[index] ?? 'NULL'));
       });
 
+      const sourceNoteId = String(record.get('id') ?? '').trim();
+      if (!sourceNoteId) {
+        incrementReason(rejectedReasons, 'ID source absent');
+        continue;
+      }
+
+      const sourcePatientId = emptyToNull(record.get('patient_id') ?? null);
       const descriptionHtml = record.get('description') ?? null;
       const historicalDate = parseUnixTimestamp(record.get('date') ?? null);
+
+      if (!firstSourceNoteId) firstSourceNoteId = sourceNoteId;
+      lastSourceNoteId = sourceNoteId;
+      if (sourcePatientId) sourcePatientIds.add(sourcePatientId);
+
       rows.push({
-        sourceNoteId: String(record.get('id') ?? '').trim(),
-        sourcePatientId: emptyToNull(record.get('patient_id') ?? null),
+        sourceNoteId,
+        sourcePatientId,
         sourceDoctorId: emptyToNull(record.get('doctor_id') ?? null),
         title: emptyToNull(record.get('title') ?? null),
         descriptionHtml,
@@ -344,7 +544,40 @@ function parseMedicalHistoryDump(sql: string): LegacyMedicalHistoryRow[] {
     }
   }
 
-  return rows;
+  return {
+    rows,
+    stats: {
+      insertBlocksDetected: blocks.length,
+      totalTuplesDetected,
+      validRows: rows.length,
+      rejectedRows: totalTuplesDetected - rows.length,
+      distinctSourcePatientIds: sourcePatientIds.size,
+      firstSourceNoteId,
+      lastSourceNoteId,
+      rejectedReasons,
+    },
+  };
+}
+
+function validateParserStats(stats: ParserStats, expectedCount: number | null): void {
+  const errors: string[] = [];
+
+  if (stats.insertBlocksDetected === 0) {
+    errors.push('Aucun INSERT INTO `medical_history` détecté');
+  }
+  if (stats.totalTuplesDetected < 100) {
+    errors.push(`Nombre de tuples insuffisant: ${stats.totalTuplesDetected} détecté(s), minimum attendu 100`);
+  }
+  if (stats.totalTuplesDetected > 0 && stats.rejectedRows > stats.totalTuplesDetected / 2) {
+    errors.push(`Majorité de tuples rejetée: ${stats.rejectedRows}/${stats.totalTuplesDetected}`);
+  }
+  if (expectedCount !== null && stats.validRows !== expectedCount) {
+    errors.push(`--expected-count mismatch: ${stats.validRows} ligne(s) valide(s) parsée(s), attendu ${expectedCount}`);
+  }
+
+  if (errors.length > 0) {
+    throw new Error(`Validation parseur échouée:\n- ${errors.join('\n- ')}`);
+  }
 }
 
 function emptyToNull(value: string | null): string | null {
@@ -649,10 +882,14 @@ async function main() {
   const inputPath = path.resolve(options.file);
   const outputDir = path.resolve(options.outputDir);
   const sql = await readFile(inputPath, 'utf8');
-  const parsedRows = parseMedicalHistoryDump(sql)
+  const parsedDump = parseMedicalHistoryDump(sql);
+  validateParserStats(parsedDump.stats, options.expectedCount);
+
+  const parsedRows = parsedDump.rows
     .filter((row) => (options.patientSourceId ? row.sourcePatientId === options.patientSourceId : true))
     .filter((row) => row.sourceNoteId);
   const rows = options.limit ? parsedRows.slice(0, options.limit) : parsedRows;
+  const sourcePatientIdsInScope = new Set(rows.map((row) => row.sourcePatientId).filter(Boolean));
 
   await mkdir(outputDir, { recursive: true });
 
@@ -669,7 +906,6 @@ async function main() {
     ]);
     const targetDoctor = await validateTargetDoctor(prisma, options.targetDoctorId);
     const patientIndex = buildPatientIndex(patients, explicitMap);
-    const sourcePatientIds = new Set(rows.map((row) => row.sourcePatientId).filter(Boolean));
 
     for (const row of rows) {
       const imported = importedBySourceId.get(row.sourceNoteId);
@@ -760,9 +996,11 @@ async function main() {
       sourceFile: inputPath,
       outputDir,
       patientsInNezha: patients.length,
-      sourceUniquePatients: sourcePatientIds.size,
+      sourceUniquePatients: sourcePatientIdsInScope.size,
       sourceNotesParsed: parsedRows.length,
       sourceNotesInScope: rows.length,
+      sourceUniquePatientsParsedTotal: parsedDump.stats.distinctSourcePatientIds,
+      parserStats: parsedDump.stats,
       explicitPatientMappingsLoaded: explicitMap.size,
       targetDoctor: targetDoctor
         ? { id: targetDoctor.id, nom: targetDoctor.nom, email: targetDoctor.email, role: targetDoctor.role }
