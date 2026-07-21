@@ -60,6 +60,16 @@ export async function GET(request: NextRequest) {
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       skip,
       take: pageSize,
+      include: {
+        insuranceTypeRef: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+            isActive: true,
+          },
+        },
+      },
     });
 
     const from = total === 0 ? 0 : skip + 1;

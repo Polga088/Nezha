@@ -44,7 +44,24 @@ import {
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { hasDeclaredAssurance } from '@/lib/assurance-types';
 
-type PatientRow = PatientForEdit;
+type PatientInsuranceRef = {
+  id: string;
+  name: string;
+  code: string;
+  isActive: boolean;
+};
+
+type PatientRow = PatientForEdit & {
+  insuranceTypeRef?: PatientInsuranceRef | null;
+};
+
+function shouldShowInsuranceBadge(patient: PatientRow): boolean {
+  const selectedCode = patient.insuranceTypeRef?.code?.trim().toUpperCase();
+  return Boolean(
+    (patient.insuranceTypeId && selectedCode !== 'AUCUNE') ||
+      hasDeclaredAssurance(patient.assuranceType)
+  );
+}
 
 type ImportReportRow = {
   line: number;
@@ -587,7 +604,7 @@ export default function PatientsPage() {
                             {p.prenom} <span className="uppercase">{p.nom}</span>
                           </span>
                         </div>
-                        {hasDeclaredAssurance(p.assuranceType) || p.insuranceTypeId ? (
+                        {shouldShowInsuranceBadge(p) ? (
                           <span
                             className="shrink-0 text-emerald-600/85"
                             title="Couverture sociale déclarée"
