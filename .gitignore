@@ -45,3 +45,10 @@ next-env.d.ts
 public/uploads
 *.csv
 .env
+
+# Données médicales de migration — ne jamais versionner
+migration-data/
+migration-output/
+*.sql
+*.tar.gz
+legacy_documents.zip
