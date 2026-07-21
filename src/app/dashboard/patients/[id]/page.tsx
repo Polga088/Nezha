@@ -660,12 +660,19 @@ export default function PatientPage({ params }: { params: Promise<{ id: string }
   const imc = calculateIMC(patient.poids, patient.taille);
   const imcStatus = getImcStatus(imc);
 
+  const selectedInsurance = patient.insuranceTypeRef as
+    | { id: string; name: string; code: string; isActive: boolean }
+    | null
+    | undefined;
   const rawAssurance = patient.assuranceType ?? 'AUCUNE';
   const assuranceTypeKey: AssuranceTypeValue = (
     ASSURANCE_TYPE_VALUES as readonly string[]
   ).includes(rawAssurance)
     ? (rawAssurance as AssuranceTypeValue)
-    : 'AUTRE';
+    : 'AUCUNE';
+  const hasInsuranceCoverage = Boolean(patient.insuranceTypeId || hasDeclaredAssurance(rawAssurance));
+  const assuranceDisplayLabel =
+    selectedInsurance?.name?.trim() || ASSURANCE_TYPE_LABELS[assuranceTypeKey];
 
   const handleCopyMatriculeAssurance = async () => {
     const m = patient.matriculeAssurance?.trim();
@@ -773,7 +780,7 @@ export default function PatientPage({ params }: { params: Promise<{ id: string }
               Couverture sociale
             </h3>
             <div className="rounded-xl border border-outline-variant/15 bg-container-lowest p-4 shadow-medical mb-6">
-              {!hasDeclaredAssurance(patient.assuranceType) ? (
+              {!hasInsuranceCoverage ? (
                 <p className="text-sm text-slate-500">Aucune couverture déclarée</p>
               ) : (
                 <div className="space-y-3">
@@ -782,7 +789,7 @@ export default function PatientPage({ params }: { params: Promise<{ id: string }
                       variant="outline"
                       className={`px-2.5 py-0.5 font-semibold ${assuranceTypeBadgeClassName(assuranceTypeKey)}`}
                     >
-                      {ASSURANCE_TYPE_LABELS[assuranceTypeKey]}
+                      {assuranceDisplayLabel}
                     </Badge>
                   </div>
                   {patient.matriculeAssurance?.trim() ? (

@@ -587,7 +587,7 @@ export default function PatientsPage() {
                             {p.prenom} <span className="uppercase">{p.nom}</span>
                           </span>
                         </div>
-                        {hasDeclaredAssurance(p.assuranceType) ? (
+                        {hasDeclaredAssurance(p.assuranceType) || p.insuranceTypeId ? (
                           <span
                             className="shrink-0 text-emerald-600/85"
                             title="Couverture sociale déclarée"

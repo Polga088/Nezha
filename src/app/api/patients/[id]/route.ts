@@ -41,6 +41,14 @@ function normalizeNullableText(value: unknown) {
 }
 
 const PATIENT_GET_INCLUDE = {
+  insuranceTypeRef: {
+    select: {
+      id: true,
+      name: true,
+      code: true,
+      isActive: true,
+    },
+  },
   appointments: {
     orderBy: { date_heure: 'desc' as const },
     take: 40,

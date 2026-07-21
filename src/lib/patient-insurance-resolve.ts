@@ -12,8 +12,12 @@ const ASSURANCE_ENUM = new Set<string>([
   'AUTRE',
 ]);
 
-function codeToEnum(code: string): AssuranceType {
-  return ASSURANCE_ENUM.has(code) ? (code as AssuranceType) : 'AUTRE';
+export function insuranceCodeToPatientAssuranceType(code: string): AssuranceType {
+  const normalizedCode = String(code).trim().toUpperCase();
+  if (ASSURANCE_ENUM.has(normalizedCode)) return normalizedCode as AssuranceType;
+
+  // Legacy enum only: dynamic insurance rows stay linked through insuranceTypeId.
+  return 'AUCUNE';
 }
 
 export type ResolvedPatientInsurance = {
@@ -60,7 +64,7 @@ export async function resolvePatientInsuranceInput(input: {
     return {
       ok: true,
       data: {
-        assuranceType: codeToEnum(row.code),
+        assuranceType: insuranceCodeToPatientAssuranceType(row.code),
         insuranceTypeId: row.id,
         ...(matricule !== undefined ? { matriculeAssurance: matricule } : {}),
       },
